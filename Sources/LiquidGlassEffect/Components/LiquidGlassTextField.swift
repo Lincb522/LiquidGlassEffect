@@ -14,17 +14,20 @@ public struct LiquidGlassTextField: View {
     @Binding var text: String
     var icon: String?
     var cornerRadius: CGFloat
+    var backgroundCaptureFrameRate: Double
     
     public init(
         _ placeholder: String,
         text: Binding<String>,
         icon: String? = nil,
-        cornerRadius: CGFloat = 16
+        cornerRadius: CGFloat = 16,
+        backgroundCaptureFrameRate: Double = 30.0
     ) {
         self.placeholder = placeholder
         self._text = text
         self.icon = icon
         self.cornerRadius = cornerRadius
+        self.backgroundCaptureFrameRate = backgroundCaptureFrameRate
     }
     
     public var body: some View {
@@ -41,6 +44,6 @@ public struct LiquidGlassTextField: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .liquidGlass(cornerRadius: cornerRadius)
+        .liquidGlass(cornerRadius: cornerRadius, backgroundCaptureFrameRate: backgroundCaptureFrameRate)
     }
 }

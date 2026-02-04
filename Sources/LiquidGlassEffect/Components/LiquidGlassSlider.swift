@@ -15,19 +15,22 @@ public struct LiquidGlassSlider: View {
     var iconColor: Color
     var height: CGFloat
     var cornerRadius: CGFloat
+    var backgroundCaptureFrameRate: Double
     
     public init(
         value: Binding<Double>,
         icon: String = "circle.fill",
         iconColor: Color = .white,
         height: CGFloat = 160,
-        cornerRadius: CGFloat = 20
+        cornerRadius: CGFloat = 20,
+        backgroundCaptureFrameRate: Double = 30.0
     ) {
         self._value = value
         self.icon = icon
         self.iconColor = iconColor
         self.height = height
         self.cornerRadius = cornerRadius
+        self.backgroundCaptureFrameRate = backgroundCaptureFrameRate
     }
     
     public var body: some View {
@@ -46,7 +49,7 @@ public struct LiquidGlassSlider: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .liquidGlass(cornerRadius: cornerRadius)
+            .liquidGlass(cornerRadius: cornerRadius, backgroundCaptureFrameRate: backgroundCaptureFrameRate)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in

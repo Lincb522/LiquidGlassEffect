@@ -29,6 +29,12 @@ public final class LiquidGlassView: MTKView {
         didSet { preferredFramesPerSecond = targetFrameRate }
     }
     
+    /// 背景捕获帧率限制（默认 30fps，降低 CPU 占用）
+    public var backgroundCaptureFrameRate: Double = 30.0
+    
+    /// 上次捕获背景的时间
+    private var lastCaptureTime: CFTimeInterval = 0
+    
     /// 是否自动捕获背景
     public var autoCapture: Bool = true
     
@@ -267,9 +273,15 @@ public final class LiquidGlassView: MTKView {
         guard isMetalAvailable, let renderer = LiquidGlassRenderer.shared else { return }
         guard bounds.width > 0, bounds.height > 0 else { return }
         
-        // 捕获背景
+        // 捕获背景（带节流控制）
         if autoCapture {
-            captureBackdrop()
+            let currentTime = CACurrentMediaTime()
+            let interval = 1.0 / backgroundCaptureFrameRate
+            
+            if currentTime - lastCaptureTime >= interval {
+                captureBackdrop()
+                lastCaptureTime = currentTime
+            }
         }
         
         // 使用双缓冲纹理

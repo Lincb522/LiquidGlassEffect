@@ -14,10 +14,12 @@ public struct LiquidGlassMetalView: UIViewRepresentable {
     
     public var config: LiquidGlassConfig
     public var cornerRadius: CGFloat
+    public var backgroundCaptureFrameRate: Double
     
-    public init(config: LiquidGlassConfig = .regular, cornerRadius: CGFloat = 0) {
+    public init(config: LiquidGlassConfig = .regular, cornerRadius: CGFloat = 0, backgroundCaptureFrameRate: Double = 30.0) {
         self.config = config
         self.cornerRadius = cornerRadius
+        self.backgroundCaptureFrameRate = backgroundCaptureFrameRate
     }
     
     public func makeUIView(context: Context) -> LiquidGlassView {
@@ -25,11 +27,13 @@ public struct LiquidGlassMetalView: UIViewRepresentable {
         view.layer.cornerRadius = cornerRadius
         view.layer.cornerCurve = .continuous
         view.clipsToBounds = true
+        view.backgroundCaptureFrameRate = backgroundCaptureFrameRate
         return view
     }
     
     public func updateUIView(_ uiView: LiquidGlassView, context: Context) {
         uiView.layer.cornerRadius = cornerRadius
+        uiView.backgroundCaptureFrameRate = backgroundCaptureFrameRate
     }
     
     public static func dismantleUIView(_ uiView: LiquidGlassView, coordinator: ()) {
@@ -42,18 +46,18 @@ public struct LiquidGlassMetalView: UIViewRepresentable {
 public extension View {
     
     /// 应用液态玻璃效果
-    func liquidGlass(config: LiquidGlassConfig = .regular, cornerRadius: CGFloat = 20) -> some View {
-        self.background(LiquidGlassMetalView(config: config, cornerRadius: cornerRadius))
+    func liquidGlass(config: LiquidGlassConfig = .regular, cornerRadius: CGFloat = 20, backgroundCaptureFrameRate: Double = 30.0) -> some View {
+        self.background(LiquidGlassMetalView(config: config, cornerRadius: cornerRadius, backgroundCaptureFrameRate: backgroundCaptureFrameRate))
     }
     
     /// 应用镜头效果
-    func liquidGlassLens(cornerRadius: CGFloat = 20) -> some View {
-        self.background(LiquidGlassMetalView(config: .lens, cornerRadius: cornerRadius))
+    func liquidGlassLens(cornerRadius: CGFloat = 20, backgroundCaptureFrameRate: Double = 30.0) -> some View {
+        self.background(LiquidGlassMetalView(config: .lens, cornerRadius: cornerRadius, backgroundCaptureFrameRate: backgroundCaptureFrameRate))
     }
     
     /// 应用轻微效果
-    func liquidGlassSubtle(cornerRadius: CGFloat = 16) -> some View {
-        self.background(LiquidGlassMetalView(config: .subtle, cornerRadius: cornerRadius))
+    func liquidGlassSubtle(cornerRadius: CGFloat = 16, backgroundCaptureFrameRate: Double = 30.0) -> some View {
+        self.background(LiquidGlassMetalView(config: .subtle, cornerRadius: cornerRadius, backgroundCaptureFrameRate: backgroundCaptureFrameRate))
     }
 }
 

@@ -159,6 +159,7 @@ struct ControlsDemoPage: View {
     @State private var brightness: Double = 0.7
     @State private var searchText = ""
     @State private var darkMode = true
+    @State private var captureFPS: Double = 30.0
     
     var body: some View {
         VStack(spacing: 32) {
@@ -168,6 +169,17 @@ struct ControlsDemoPage: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
             
+            // 性能控制演示
+            VStack(alignment: .leading, spacing: 10) {
+                Text("背景捕获帧率: \(Int(captureFPS)) FPS")
+                    .font(.caption)
+                    .foregroundStyle(.white)
+                
+                Slider(value: $captureFPS, in: 1...60, step: 1)
+                    .tint(.white)
+            }
+            .padding(.horizontal)
+            
             Spacer()
             
             // 滑块
@@ -175,23 +187,29 @@ struct ControlsDemoPage: View {
                 LiquidGlassSlider(
                     value: $brightness,
                     icon: "sun.max.fill",
-                    iconColor: .yellow
+                    iconColor: .yellow,
+                    backgroundCaptureFrameRate: captureFPS
                 )
                 Spacer()
             }
             
             // 输入框
-            LiquidGlassTextField("搜索...", text: $searchText, icon: "magnifyingglass")
+            LiquidGlassTextField(
+                "搜索...",
+                text: $searchText,
+                icon: "magnifyingglass",
+                backgroundCaptureFrameRate: captureFPS
+            )
             
             // 开关
-            LiquidGlassCard {
+            LiquidGlassCard(backgroundCaptureFrameRate: captureFPS) {
                 HStack {
                     Image(systemName: "moon.fill")
                         .foregroundStyle(.purple)
                     Text("深色模式")
                         .foregroundStyle(.white)
                     Spacer()
-                    LiquidGlassToggle(isOn: $darkMode)
+                    LiquidGlassToggle(isOn: $darkMode, backgroundCaptureFrameRate: captureFPS)
                 }
             }
             

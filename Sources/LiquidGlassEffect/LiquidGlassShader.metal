@@ -125,18 +125,22 @@ float primaryShapeSDF(float2 fragmentCoord, constant ShaderUniforms& uniforms) {
     return combinedDistance;
 }
 
-float2 computeSurfaceNormal(float2 fragmentCoord, constant ShaderUniforms& uniforms) {
+float2 computeSurfaceNormal(float2 fragmentCoord, float currentDistance, constant ShaderUniforms& uniforms) {
     float2 epsilon = float2(
         max(abs(dfdx(fragmentCoord.x)), 0.0001f),
         max(abs(dfdy(fragmentCoord.y)), 0.0001f)
     );
     
+    // 使用前向差分 (Forward Difference) 替代中心差分，减少 50% 的 SDF 采样次数
+    // 利用已计算的 currentDistance (即 SDF(p))
+    // Gradient ~= (SDF(p + h) - SDF(p)) / h
+    float nextX = primaryShapeSDF(fragmentCoord + float2(epsilon.x, 0.0f), uniforms);
+    float nextY = primaryShapeSDF(fragmentCoord + float2(0.0f, epsilon.y), uniforms);
+    
     float2 gradient = float2(
-        primaryShapeSDF(fragmentCoord + float2(epsilon.x, 0.0f), uniforms) -
-        primaryShapeSDF(fragmentCoord - float2(epsilon.x, 0.0f), uniforms),
-        primaryShapeSDF(fragmentCoord + float2(0.0f, epsilon.y), uniforms) -
-        primaryShapeSDF(fragmentCoord - float2(0.0f, epsilon.y), uniforms)
-    ) / (2.0f * epsilon);
+        nextX - currentDistance,
+        nextY - currentDistance
+    ) / epsilon;
     
     return gradient * 1.414213562f * 1000.0f;
 }
@@ -318,7 +322,7 @@ fragment half4 liquidGlassEffect(VertexOutput input [[stage_in]],
             outputColor = background.sample(textureSampler, float2(input.uv));
             outputColor = mix(outputColor, half4(half3(uniforms.materialTint.rgb), 1.0h), half(uniforms.materialTint.a * 0.8f));
         } else {
-            float2 surfaceNormal = computeSurfaceNormal(fragmentPixelCoord, uniforms);
+            float2 surfaceNormal = computeSurfaceNormal(fragmentPixelCoord, shapeDistance, uniforms);
             
             half2 offsetUv = half2(-surfaceNormal * edgeShiftFactor * 0.05f * uniforms.contentsScale * float2(
                 uniforms.resolution.y / (logicalResolution.x * uniforms.contentsScale),
