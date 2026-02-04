@@ -50,6 +50,8 @@ public struct LiquidGlassTabBar: View {
     /// 内边距
     private let padding: CGFloat = 6
     
+    @Namespace private var animationNamespace
+    
     public struct TabBarItem: Identifiable {
         public let id: Int
         public let icon: String
@@ -83,6 +85,24 @@ public struct LiquidGlassTabBar: View {
                         height: itemHeight + padding * 2
                     )
             }
+            
+            // 选中气泡层 (独立出来以实现平滑移动)
+            HStack(spacing: 0) {
+                ForEach(items) { item in
+                    if selectedIndex == item.id {
+                        LiquidGlassContainer(config: config, cornerRadius: itemHeight / 2) {
+                            Color.clear
+                        }
+                        .frame(width: itemWidth, height: itemHeight)
+                        .matchedGeometryEffect(id: "activeTab", in: animationNamespace)
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                    } else {
+                        Spacer().frame(width: itemWidth, height: itemHeight)
+                    }
+                }
+            }
+            .padding(padding)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: selectedIndex)
             
             // 内容层
             HStack(spacing: 0) {
@@ -129,17 +149,6 @@ private struct TabItemView: View {
             action()
         }) {
             ZStack {
-                // 选中时的液态玻璃气泡
-                if isSelected {
-                    LiquidGlassContainer(config: config, cornerRadius: itemHeight / 2) {
-                        Color.clear
-                    }
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.8).combined(with: .opacity),
-                        removal: .scale(scale: 0.9).combined(with: .opacity)
-                    ))
-                }
-                
                 // 图标
                 Image(systemName: isSelected ? (item.activeIcon ?? item.icon) : item.icon)
                     .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
@@ -149,6 +158,7 @@ private struct TabItemView: View {
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
             }
             .frame(width: itemWidth, height: itemHeight)
+            .contentShape(Rectangle()) // 扩大点击区域
         }
         .buttonStyle(.plain)
     }
@@ -189,6 +199,7 @@ public struct LiquidGlassLabeledTabBar: View {
     @Binding var selectedIndex: Int
     let items: [LabeledTabItem]
     var config: LiquidGlassConfig
+    @Namespace private var animationNamespace
     
     public struct LabeledTabItem: Identifiable {
         public let id: Int
@@ -219,7 +230,8 @@ public struct LiquidGlassLabeledTabBar: View {
                     LabeledTabItemView(
                         item: item,
                         isSelected: selectedIndex == item.id,
-                        config: config
+                        config: config,
+                        animationNamespace: animationNamespace
                     ) {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
                             selectedIndex = item.id
@@ -236,6 +248,7 @@ private struct LabeledTabItemView: View {
     let item: LiquidGlassLabeledTabBar.LabeledTabItem
     let isSelected: Bool
     let config: LiquidGlassConfig
+    let animationNamespace: Namespace.ID
     let action: () -> Void
     
     @State private var isPressed = false
@@ -256,6 +269,7 @@ private struct LabeledTabItemView: View {
                     LiquidGlassContainer(config: config, cornerRadius: 20) {
                         Color.clear
                     }
+                    .matchedGeometryEffect(id: "activeLabeledTab", in: animationNamespace)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
                 }
                 
@@ -288,6 +302,7 @@ public struct LiquidGlassPillTabBar: View {
     @Binding var selectedIndex: Int
     let items: [PillTabItem]
     var config: LiquidGlassConfig
+    @Namespace private var animationNamespace
     
     public struct PillTabItem: Identifiable {
         public let id: Int
@@ -316,7 +331,8 @@ public struct LiquidGlassPillTabBar: View {
                     PillTabItemView(
                         item: item,
                         isSelected: selectedIndex == item.id,
-                        config: config
+                        config: config,
+                        animationNamespace: animationNamespace
                     ) {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                             selectedIndex = item.id
@@ -333,6 +349,7 @@ private struct PillTabItemView: View {
     let item: LiquidGlassPillTabBar.PillTabItem
     let isSelected: Bool
     let config: LiquidGlassConfig
+    let animationNamespace: Namespace.ID
     let action: () -> Void
     
     @State private var isPressed = false
@@ -353,6 +370,7 @@ private struct PillTabItemView: View {
                     LiquidGlassContainer(config: config, cornerRadius: 20) {
                         Color.clear
                     }
+                    .matchedGeometryEffect(id: "activePillTab", in: animationNamespace)
                     .transition(.scale(scale: 0.85).combined(with: .opacity))
                 }
                 

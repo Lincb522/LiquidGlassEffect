@@ -28,6 +28,8 @@ public struct LiquidGlassMetalView: UIViewRepresentable {
         view.layer.cornerCurve = .continuous
         view.clipsToBounds = true
         view.backgroundCaptureFrameRate = backgroundCaptureFrameRate
+        // 允许交互，但通过 hitTest 控制穿透
+        view.isUserInteractionEnabled = true 
         return view
     }
     

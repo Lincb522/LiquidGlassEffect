@@ -206,8 +206,13 @@ public final class LiquidGlassEngine {
     }
     
     @objc private func handleAppWillEnterForeground() {
-        resumeAll()
+        // 先触发一次强制捕获，确保有纹理可用
         invalidateAllBackgrounds()
+        
+        // 延迟一小段时间再恢复渲染循环，确保 UI 已经 layout 完毕
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.resumeAll()
+        }
     }
     
     // MARK: - Statistics

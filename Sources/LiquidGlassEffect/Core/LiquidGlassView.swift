@@ -35,6 +35,9 @@ public final class LiquidGlassView: MTKView {
     /// 上次捕获背景的时间
     private var lastCaptureTime: CFTimeInterval = 0
     
+    /// 上次记录的全局位置
+    private var lastGlobalPosition: CGPoint = .zero
+    
     /// 是否自动捕获背景
     public var autoCapture: Bool = true
     
@@ -273,14 +276,21 @@ public final class LiquidGlassView: MTKView {
         guard isMetalAvailable, let renderer = LiquidGlassRenderer.shared else { return }
         guard bounds.width > 0, bounds.height > 0 else { return }
         
-        // 捕获背景（带节流控制）
+        // 捕获背景（带节流控制和动态位置检测）
         if autoCapture {
             let currentTime = CACurrentMediaTime()
             let interval = 1.0 / backgroundCaptureFrameRate
             
-            if currentTime - lastCaptureTime >= interval {
+            // 计算全局位置
+            let currentGlobalPosition = convert(bounds.origin, to: nil)
+            let positionChanged = abs(currentGlobalPosition.x - lastGlobalPosition.x) > 0.5 || 
+                                  abs(currentGlobalPosition.y - lastGlobalPosition.y) > 0.5
+            
+            // 如果位置发生变化（正在滑动），或者达到了节流时间间隔，则更新背景
+            if positionChanged || currentTime - lastCaptureTime >= interval {
                 captureBackdrop()
                 lastCaptureTime = currentTime
+                lastGlobalPosition = currentGlobalPosition
             }
         }
         
@@ -303,6 +313,9 @@ public final class LiquidGlassView: MTKView {
             encoder.setFragmentBuffer(uniformsBuffer, offset: 0, index: 0)
             encoder.setFragmentTexture(texture, index: 0)
             encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        } else {
+            // 如果没有纹理，不执行绘制，保持清除色（全透明）
+            // 避免绘制出未初始化的黑色内容
         }
         
         encoder.endEncoding()
@@ -321,6 +334,14 @@ public final class LiquidGlassView: MTKView {
             textureA = nil
             textureB = nil
         }
+    }
+    
+    // MARK: - Hit Test
+    
+    /// 默认不拦截点击事件，允许穿透到下层视图
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let view = super.hitTest(point, with: event)
+        return view == self ? nil : view
     }
     
     public func releaseCache() {
