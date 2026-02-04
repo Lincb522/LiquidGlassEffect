@@ -9,7 +9,7 @@ iOS 26 风格液态玻璃效果 Swift Package，基于 Metal 高性能渲染。
 ## 特性
 
 - 🎨 Metal 渲染的液态玻璃效果
-- 🚀 高性能双缓冲纹理机制
+- 🚀 高性能双缓冲纹理机制与智能节流（默认 30fps 背景捕获，60fps 光效渲染）
 - 📱 iOS 15+ 支持
 - 🎛️ 丰富的预设配置（regular、lens、subtle、thumb）
 - 🧩 SwiftUI 原生支持
@@ -21,7 +21,7 @@ iOS 26 风格液态玻璃效果 Swift Package，基于 Metal 高性能渲染。
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Lincb522/LiquidGlassEffect", from: "1.0.0")
+    .package(url: "https://github.com/Lincb522/LiquidGlassEffect", from: "1.1.0")
 ]
 ```
 
@@ -61,6 +61,15 @@ struct ContentView: View {
 .liquidGlass(config: .lens)      // 镜头效果
 .liquidGlass(config: .subtle)    // 轻微效果
 .liquidGlass(config: .thumb())   // 缩略图效果
+```
+
+## 性能优化
+
+从 v1.1.0 开始，你可以控制背景捕获的帧率以节省电量：
+
+```swift
+// 背景每秒更新 15 次，但光效依然保持 60fps 流畅
+.liquidGlass(backgroundCaptureFrameRate: 15.0)
 ```
 
 ## 致谢
