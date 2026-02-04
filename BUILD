@@ -22,7 +22,7 @@ LiquidGlassEffect 是一个高性能的 iOS 液态玻璃效果库，基于 Metal
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/your-repo/LiquidGlassEffect", from: "1.0.0")
+    .package(url: "https://github.com/Lincb522/LiquidGlassEffect", from: "1.0.0")
 ]
 ```
 

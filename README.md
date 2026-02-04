@@ -21,7 +21,7 @@ iOS 26 风格液态玻璃效果 Swift Package，基于 Metal 高性能渲染。
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/your-repo/LiquidGlassEffect", from: "1.0.0")
+    .package(url: "https://github.com/Lincb522/LiquidGlassEffect", from: "1.0.0")
 ]
 ```
 
