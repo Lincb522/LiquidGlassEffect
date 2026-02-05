@@ -7,13 +7,21 @@
 LiquidGlassEffect 是一个高性能的 iOS 液态玻璃效果库，基于 Metal 渲染，
 提供类似 iOS 26 的液态玻璃 UI 效果。
 
+## 版本
+
+v2.1.0 (2026-02-05)
+
 ## 特性
 
 - 🎨 Metal 渲染的液态玻璃效果
-- 🚀 **高性能架构升级 (v2.0)**:
+- 🚀 **高性能架构 (v2.x)**:
   - **共享背景上下文**: `LiquidGlassGroup` 让多组件共享单一背景捕获，CPU 负载降低 90%
-  - **全局纹理池**: 智能显存管理，拒绝 OOM
+  - **全局纹理池**: 智能显存管理，LRU 缓存策略
   - **静态快照**: 静止时 GPU 0% 占用
+- 🏗️ **代码重构 (v2.1)**:
+  - 核心代码模块化拆分
+  - 完整的文档注释
+  - 统一的按压动画样式
 - 📱 iOS 15+ 支持
 - 🎛️ 丰富的预设配置
 - 🧩 SwiftUI 原生支持
@@ -25,7 +33,7 @@ LiquidGlassEffect 是一个高性能的 iOS 液态玻璃效果库，基于 Metal
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Lincb522/LiquidGlassEffect", from: "2.0.0")
+    .package(url: "https://github.com/Lincb522/LiquidGlassEffect", from: "2.1.0")
 ]
 ```
 
@@ -43,27 +51,31 @@ LiquidGlassEffect/
 │   ├── LiquidGlassShader.metal      # Metal 着色器
 │   ├── Core/                        # 核心渲染
 │   │   ├── LiquidGlassConfig.swift  # 配置
+│   │   ├── LiquidGlassUniforms.swift # Shader 参数 (v2.1)
 │   │   ├── LiquidGlassView.swift    # MTKView 实现
 │   │   ├── LiquidGlassRenderer.swift # 渲染器
 │   │   ├── LiquidGlassEngine.swift  # 性能引擎
-│   │   ├── LiquidGlassTexturePool.swift # 纹理池 (New)
-│   │   ├── LiquidGlassGroup.swift   # 共享上下文 (New)
-│   │   ├── ZeroCopyBridge.swift     # 零拷贝纹理桥
-│   │   └── BackdropView.swift       # 背景捕获
+│   │   ├── LiquidGlassTexturePool.swift # 纹理池
+│   │   ├── LiquidGlassGroup.swift   # 共享上下文
+│   │   ├── BackdropCapture.swift    # 背景捕获管理 (v2.1)
+│   │   ├── BackdropView.swift       # CABackdropLayer
+│   │   ├── ShadowView.swift         # 阴影视图 (v2.1)
+│   │   └── ZeroCopyBridge.swift     # 零拷贝纹理桥
 │   ├── SwiftUI/
 │   │   ├── LiquidGlassModifier.swift # SwiftUI 修饰器
-│   │   └── LiquidGlassEnvironment.swift # 环境变量 (New)
+│   │   └── LiquidGlassEnvironment.swift # 环境变量
 │   └── Components/                  # UI 组件
-│       ├── LiquidGlassButton.swift
-│       ├── LiquidGlassCard.swift
-│       ├── LiquidGlassFloatingBar.swift
-│       ├── LiquidGlassSlider.swift
-│       ├── LiquidGlassTextField.swift
-│       ├── LiquidGlassToggle.swift
-│       ├── LiquidGlassTag.swift
-│       ├── LiquidGlassNotification.swift
-│       ├── LiquidGlassProgress.swift
-│       └── LiquidLensView.swift
+│       ├── LiquidGlassButton.swift  # 按钮
+│       ├── LiquidGlassCard.swift    # 卡片/容器
+│       ├── LiquidGlassFloatingBar.swift # 悬浮栏/TabBar
+│       ├── LiquidGlassSlider.swift  # 滑块
+│       ├── LiquidGlassTextField.swift # 输入框
+│       ├── LiquidGlassToggle.swift  # 开关
+│       ├── LiquidGlassTag.swift     # 标签/徽章
+│       ├── LiquidGlassNotification.swift # 通知/Toast
+│       ├── LiquidGlassProgress.swift # 进度条
+│       ├── LiquidLensView.swift     # 动态镜头
+│       └── PressableModifier.swift  # 按压效果 (v2.1)
 └── Example/                         # 示例项目
     ├── project.yml
     ├── generate.sh
@@ -119,22 +131,29 @@ LiquidGlassGroup {
 .liquidGlass(config: .thumb())
 ```
 
-### 使用组件
+### 组件库
+
+#### 按钮
 
 ```swift
-// 按钮
+// 通用按钮
 LiquidGlassButton(action: { }) {
-    Text("点击")
+    HStack {
+        Image(systemName: "star.fill")
+        Text("收藏")
+    }
 }
+
+// 文本按钮
+LiquidGlassTextButton("确定", action: { })
 
 // 图标按钮
-LiquidGlassIconButton(icon: "heart.fill", action: { })
+LiquidGlassIconButton(icon: "heart.fill", isActive: true, action: { })
+```
 
-// 卡片
-LiquidGlassCard {
-    Text("卡片内容")
-}
+#### 导航
 
+```swift
 // TabBar
 LiquidGlassTabBar(
     selectedIndex: $selectedTab,
@@ -145,28 +164,63 @@ LiquidGlassTabBar(
     ]
 )
 
-// 滑块
-LiquidGlassSlider(value: $brightness, icon: "sun.max.fill")
+// 带标签的 TabBar
+LiquidGlassLabeledTabBar(
+    selectedIndex: $selectedTab,
+    items: [
+        .init(id: 0, icon: "house", label: "首页"),
+        .init(id: 1, icon: "gear", label: "设置")
+    ]
+)
 
+// 悬浮栏
+LiquidGlassFloatingBar {
+    HStack { ... }
+}
+```
+
+#### 表单
+
+```swift
 // 输入框
 LiquidGlassTextField("搜索...", text: $searchText, icon: "magnifyingglass")
 
-// 开关
-LiquidGlassToggle(isOn: $isEnabled)
+// 密码框
+LiquidGlassSecureField("密码", text: $password)
 
+// 开关
+LiquidGlassToggle(isOn: $isEnabled, onColor: .green)
+
+// 带标签的开关
+LiquidGlassLabeledToggle("通知", subtitle: "接收推送通知", isOn: $notifyEnabled)
+
+// 滑块
+LiquidGlassSlider(value: $brightness, icon: "sun.max.fill")
+```
+
+#### 展示
+
+```swift
 // 标签
 LiquidGlassTag("iOS 26", icon: "sparkles")
 
-// 通知
+// 徽章
+LiquidGlassBadge(count: 5)
+
+// 通知卡片
 LiquidGlassNotification(
     icon: "bell.fill",
     title: "通知",
     message: "新消息"
 )
 
+// Toast
+LiquidGlassToast("已保存", icon: "checkmark")
+
 // 进度条
 LiquidGlassProgress(value: 0.7)
 LiquidGlassCircularProgress(value: 0.5)
+LiquidGlassIndeterminateProgress()
 ```
 
 ### 性能控制
@@ -177,9 +231,12 @@ LiquidGlassEngine.shared.performanceMode = .balanced
 
 // 可用模式:
 // .quality    - 60fps 高质量
-// .balanced   - 60fps 平衡
+// .balanced   - 60fps 平衡 (默认)
 // .efficiency - 30fps 省电
 // .static     - 15fps 静态
+
+// 控制背景捕获帧率
+.liquidGlass(backgroundCaptureFrameRate: 15.0)
 ```
 
 ### 自定义配置
@@ -209,9 +266,9 @@ Text("自定义")
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | uniforms | LiquidGlassUniforms | Shader 参数 |
-| textureSizeCoefficient | Double | 纹理尺寸系数 |
-| textureScaleCoefficient | Double | 纹理缩放系数 |
-| blurRadius | Double | 模糊半径 |
+| textureSizeCoefficient | Double | 纹理尺寸系数 (1.0-1.2) |
+| textureScaleCoefficient | Double | 纹理缩放系数 (0.5-1.0) |
+| blurRadius | Double | 模糊半径 (0-20) |
 | shadowOverlay | Bool | 是否显示阴影 |
 
 ### LiquidGlassUniforms
@@ -219,13 +276,24 @@ Text("自定义")
 | 属性 | 类型 | 说明 |
 |------|------|------|
 | glassThickness | Float | 玻璃厚度 |
-| refractiveIndex | Float | 折射率 |
+| refractiveIndex | Float | 折射率 (1.0=空气, 1.5=玻璃) |
 | dispersionStrength | Float | 色散强度 |
 | fresnelDistanceRange | Float | 菲涅尔距离 |
 | fresnelIntensity | Float | 菲涅尔强度 |
 | glareDistanceRange | Float | 眩光距离 |
 | glareIntensity | Float | 眩光强度 |
 | glareDirectionOffset | Float | 眩光方向偏移 |
+
+### LiquidGlassPressableStyle (v2.1)
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| pressedScale | CGFloat | 按压缩放比例 |
+| responseTime | Double | 动画响应时间 |
+| dampingFraction | Double | 动画阻尼系数 |
+| pressDuration | TimeInterval | 按压持续时间 |
+
+预设样式: `.default`, `.subtle`, `.strong`, `.quick`
 
 ## 注意事项
 
@@ -244,6 +312,10 @@ cd LiquidGlassEffect/Example
 ## 许可证
 
 MIT License
+
+## 致谢
+
+- [LiquidGlassKit](https://github.com/DnV1eX/LiquidGlassKit) by Alexey Demin
 
 ## 致谢
 
