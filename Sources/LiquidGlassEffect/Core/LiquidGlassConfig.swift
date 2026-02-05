@@ -8,96 +8,43 @@
 //
 
 import UIKit
-import simd
-
-// MARK: - Shader Uniforms
-
-/// Shader 参数结构体（与 Metal shader 完全匹配）
-public struct LiquidGlassUniforms {
-    public var resolution: SIMD2<Float> = .zero
-    public var contentsScale: Float = .zero
-    public var touchPoint: SIMD2<Float> = .zero
-    public var shapeMergeSmoothness: Float = .zero
-    public var cornerRadius: Float = .zero
-    public var cornerRoundnessExponent: Float = 2
-    public var materialTint: SIMD4<Float> = .zero
-    public var glassThickness: Float
-    public var refractiveIndex: Float
-    public var dispersionStrength: Float
-    public var fresnelDistanceRange: Float
-    public var fresnelIntensity: Float
-    public var fresnelEdgeSharpness: Float
-    public var glareDistanceRange: Float
-    public var glareAngleConvergence: Float
-    public var glareOppositeSideBias: Float
-    public var glareIntensity: Float
-    public var glareEdgeSharpness: Float
-    public var glareDirectionOffset: Float
-    
-    // UV Mapping for shared textures
-    public var uvOffset: SIMD2<Float> = .zero
-    public var uvScale: SIMD2<Float> = SIMD2<Float>(1.0, 1.0)
-    
-    public var rectangleCount: Int32 = .zero
-    public var rectangles: (
-        SIMD4<Float>, SIMD4<Float>, SIMD4<Float>, SIMD4<Float>,
-        SIMD4<Float>, SIMD4<Float>, SIMD4<Float>, SIMD4<Float>,
-        SIMD4<Float>, SIMD4<Float>, SIMD4<Float>, SIMD4<Float>,
-        SIMD4<Float>, SIMD4<Float>, SIMD4<Float>, SIMD4<Float>
-    ) = (.zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero,
-         .zero, .zero, .zero, .zero, .zero, .zero, .zero, .zero)
-    
-    public init(
-        glassThickness: Float = 6,
-        refractiveIndex: Float = 1.1,
-        dispersionStrength: Float = 15,
-        fresnelDistanceRange: Float = 70,
-        fresnelIntensity: Float = 0,
-        fresnelEdgeSharpness: Float = 0,
-        glareDistanceRange: Float = 30,
-        glareAngleConvergence: Float = 0.1,
-        glareOppositeSideBias: Float = 1,
-        glareIntensity: Float = 0.1,
-        glareEdgeSharpness: Float = -0.1,
-        glareDirectionOffset: Float = -.pi / 4
-    ) {
-        self.glassThickness = glassThickness
-        self.refractiveIndex = refractiveIndex
-        self.dispersionStrength = dispersionStrength
-        self.fresnelDistanceRange = fresnelDistanceRange
-        self.fresnelIntensity = fresnelIntensity
-        self.fresnelEdgeSharpness = fresnelEdgeSharpness
-        self.glareDistanceRange = glareDistanceRange
-        self.glareAngleConvergence = glareAngleConvergence
-        self.glareOppositeSideBias = glareOppositeSideBias
-        self.glareIntensity = glareIntensity
-        self.glareEdgeSharpness = glareEdgeSharpness
-        self.glareDirectionOffset = glareDirectionOffset
-    }
-}
 
 // MARK: - Config
 
 /// 液态玻璃效果配置
+///
+/// 包含渲染参数和纹理捕获设置。
+/// 使用预设配置或自定义参数创建不同风格的液态玻璃效果。
 public struct LiquidGlassConfig {
     
-    /// 最大矩形数量
+    /// 最大矩形数量（与 shader 中的 `maxRectangles` 一致）
     public static let maxRectangles = 16
     
     /// Shader 参数
     public let uniforms: LiquidGlassUniforms
     
-    /// 背景纹理尺寸系数
+    /// 背景纹理尺寸系数（相对于视图尺寸）
+    ///
+    /// 值越大，捕获的背景区域越大，边缘效果越好，但性能开销也越大。
+    /// 推荐范围：1.0 - 1.2
     public let textureSizeCoefficient: Double
     
     /// 背景纹理缩放系数
+    ///
+    /// 值越小，纹理分辨率越低，性能越好，但清晰度下降。
+    /// 推荐范围：0.5 - 1.0
     public let textureScaleCoefficient: Double
     
     /// 背景模糊半径
+    ///
+    /// 0 = 无模糊，值越大模糊越强。
+    /// 推荐范围：0 - 20
     public let blurRadius: Double
     
     /// 是否显示阴影
     public let shadowOverlay: Bool
+    
+    // MARK: - Init
     
     public init(
         uniforms: LiquidGlassUniforms = .init(),
@@ -118,7 +65,9 @@ public struct LiquidGlassConfig {
 
 public extension LiquidGlassConfig {
     
-    /// 标准效果 - 适用于卡片、面板
+    /// 标准效果
+    ///
+    /// 适用于卡片、面板等中等尺寸组件。
     static let regular = Self(
         uniforms: .init(
             glassThickness: 6,
@@ -129,7 +78,9 @@ public extension LiquidGlassConfig {
         shadowOverlay: true
     )
     
-    /// 镜头效果 - 适用于 TabBar 指示器、按钮高亮
+    /// 镜头效果
+    ///
+    /// 适用于 TabBar 指示器、按钮高亮等需要聚焦效果的场景。
     static let lens = Self(
         uniforms: .init(
             glassThickness: 6,
@@ -140,7 +91,9 @@ public extension LiquidGlassConfig {
         shadowOverlay: true
     )
     
-    /// 轻微效果 - 最小折射
+    /// 轻微效果
+    ///
+    /// 最小折射，适用于不需要强烈视觉效果的场景。
     static let subtle = Self(
         uniforms: .init(
             glassThickness: 6,
@@ -151,7 +104,9 @@ public extension LiquidGlassConfig {
         shadowOverlay: true
     )
     
-    /// 缩略图/小组件效果 - 适用于 TabBar 选中气泡、小按钮
+    /// 缩略图/小组件效果
+    ///
+    /// 适用于 TabBar 选中气泡、小按钮等小尺寸组件。
     /// - Parameter magnification: 放大倍数，默认 1
     static func thumb(magnification: Double = 1) -> Self {
         Self(

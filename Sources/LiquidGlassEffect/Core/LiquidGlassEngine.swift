@@ -6,16 +6,16 @@
 //
 
 import UIKit
-import Metal
-import QuartzCore
+
+// MARK: - Performance Mode
 
 /// 性能模式
-public enum LiquidGlassPerformanceMode {
-    /// 高质量（60fps，流畅滑动）
+public enum LiquidGlassPerformanceMode: String, CaseIterable {
+    /// 高质量（60fps）
     case quality
     /// 平衡（60fps，适度优化）
     case balanced
-    /// 省电（30fps，降低功耗）
+    /// 省电（30fps）
     case efficiency
     /// 静态（仅在需要时渲染）
     case `static`
@@ -23,33 +23,48 @@ public enum LiquidGlassPerformanceMode {
     var frameRate: Int {
         switch self {
         case .quality: return 60
-        case .balanced: return 60  // 保持 60fps 避免卡顿
+        case .balanced: return 60
         case .efficiency: return 30
         case .static: return 15
         }
     }
+    
+    var backgroundCaptureRate: Double {
+        switch self {
+        case .quality: return 60.0
+        case .balanced: return 30.0
+        case .efficiency: return 20.0
+        case .static: return 10.0
+        }
+    }
 }
 
+// MARK: - Engine
+
 /// 液态玻璃性能优化引擎
+///
+/// 单例模式，统一管理所有液态玻璃视图的生命周期和性能。
+/// 支持自适应性能调节、内存警告响应、应用状态管理。
 public final class LiquidGlassEngine {
     
     // MARK: - Singleton
     
     public static let shared = LiquidGlassEngine()
     
-    // MARK: - Properties
+    // MARK: - Public Properties
     
     /// 当前性能模式
     public var performanceMode: LiquidGlassPerformanceMode = .balanced {
-        didSet { applyPerformanceMode() }
+        didSet {
+            guard performanceMode != oldValue else { return }
+            applyPerformanceMode()
+        }
     }
     
     /// 全局帧率限制
-    public var globalFrameRate: Int = 60 {
-        didSet { notifyViewsFrameRateChanged() }
-    }
+    public private(set) var globalFrameRate: Int = 60
     
-    /// 是否启用自适应性能（根据设备负载自动调整）
+    /// 是否启用自适应性能
     public var adaptivePerformance: Bool = true
     
     /// 最大同时渲染的视图数量
@@ -58,15 +73,15 @@ public final class LiquidGlassEngine {
     /// 内存警告时自动降级
     public var autoDowngradeOnMemoryWarning: Bool = true
     
-    // MARK: - Internal State
+    // MARK: - Private Properties
     
     private var registeredViews: NSHashTable<LiquidGlassView> = .weakObjects()
+    private let lock = NSLock()
     
     // MARK: - Init
     
     private init() {
-        setupMemoryWarningObserver()
-        setupAppStateObservers()
+        setupObservers()
     }
     
     deinit {
@@ -75,58 +90,156 @@ public final class LiquidGlassEngine {
     
     // MARK: - View Registration
     
-    /// 注册视图到引擎管理
+    /// 注册视图
     public func register(_ view: LiquidGlassView) {
+        lock.lock()
         registeredViews.add(view)
+        let count = registeredViews.count
+        lock.unlock()
+        
         applySettingsToView(view)
         
-        // 检查是否超过最大数量
-        if registeredViews.count > maxConcurrentViews && adaptivePerformance {
+        // 自适应降级
+        if adaptivePerformance && count > maxConcurrentViews {
             downgradePerformance()
         }
     }
     
     /// 取消注册视图
     public func unregister(_ view: LiquidGlassView) {
+        lock.lock()
         registeredViews.remove(view)
+        let count = registeredViews.count
+        lock.unlock()
         
-        // 视图减少时可以提升性能
-        if adaptivePerformance && registeredViews.count <= maxConcurrentViews / 2 {
+        // 自适应升级
+        if adaptivePerformance && count <= maxConcurrentViews / 2 {
             upgradePerformance()
         }
     }
     
-    // MARK: - Performance Control
+    // MARK: - Control
     
-    /// 暂停所有渲染（进入后台时调用）
+    /// 暂停所有渲染
     public func pauseAll() {
-        for view in registeredViews.allObjects {
+        lock.lock()
+        let views = registeredViews.allObjects
+        lock.unlock()
+        
+        for view in views {
             view.isPaused = true
         }
     }
     
     /// 恢复所有渲染
     public func resumeAll() {
-        for view in registeredViews.allObjects {
+        lock.lock()
+        let views = registeredViews.allObjects
+        lock.unlock()
+        
+        for view in views {
             view.isPaused = false
         }
     }
     
-    /// 强制所有视图重新捕获背景
+    /// 强制重新捕获所有背景
     public func invalidateAllBackgrounds() {
-        for view in registeredViews.allObjects {
+        lock.lock()
+        let views = registeredViews.allObjects
+        lock.unlock()
+        
+        for view in views {
             view.captureBackground()
         }
     }
     
-    /// 释放所有缓存（内存紧张时调用）
+    /// 释放所有缓存
     public func releaseAllCaches() {
-        for view in registeredViews.allObjects {
+        lock.lock()
+        let views = registeredViews.allObjects
+        lock.unlock()
+        
+        for view in views {
             view.releaseCache()
+        }
+        
+        LiquidGlassTexturePool.shared.purge()
+    }
+    
+    // MARK: - Statistics
+    
+    /// 当前活跃视图数量
+    public var activeViewCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return registeredViews.count
+    }
+    
+    /// 性能统计
+    public func getStatistics() -> Statistics {
+        lock.lock()
+        let count = registeredViews.count
+        lock.unlock()
+        
+        return Statistics(
+            activeViews: count,
+            frameRate: globalFrameRate,
+            performanceMode: performanceMode,
+            texturePoolStats: LiquidGlassTexturePool.shared.debugDescription
+        )
+    }
+    
+    public struct Statistics {
+        public let activeViews: Int
+        public let frameRate: Int
+        public let performanceMode: LiquidGlassPerformanceMode
+        public let texturePoolStats: String
+    }
+    
+    // MARK: - Private Methods
+    
+    private func setupObservers() {
+        let nc = NotificationCenter.default
+        
+        nc.addObserver(
+            self,
+            selector: #selector(handleMemoryWarning),
+            name: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil
+        )
+        
+        nc.addObserver(
+            self,
+            selector: #selector(handleAppDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        
+        nc.addObserver(
+            self,
+            selector: #selector(handleAppWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleMemoryWarning() {
+        if autoDowngradeOnMemoryWarning {
+            downgradePerformance()
+            releaseAllCaches()
         }
     }
     
-    // MARK: - Adaptive Performance
+    @objc private func handleAppDidEnterBackground() {
+        pauseAll()
+    }
+    
+    @objc private func handleAppWillEnterForeground() {
+        invalidateAllBackgrounds()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.resumeAll()
+        }
+    }
     
     private func downgradePerformance() {
         switch performanceMode {
@@ -152,88 +265,18 @@ public final class LiquidGlassEngine {
     
     private func applyPerformanceMode() {
         globalFrameRate = performanceMode.frameRate
-        notifyViewsFrameRateChanged()
+        
+        lock.lock()
+        let views = registeredViews.allObjects
+        lock.unlock()
+        
+        for view in views {
+            applySettingsToView(view)
+        }
     }
     
     private func applySettingsToView(_ view: LiquidGlassView) {
         view.targetFrameRate = globalFrameRate
-    }
-    
-    private func notifyViewsFrameRateChanged() {
-        for view in registeredViews.allObjects {
-            view.targetFrameRate = globalFrameRate
-        }
-    }
-    
-    // MARK: - Memory Management
-    
-    private func setupMemoryWarningObserver() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleMemoryWarning),
-            name: UIApplication.didReceiveMemoryWarningNotification,
-            object: nil
-        )
-    }
-    
-    @objc private func handleMemoryWarning() {
-        if autoDowngradeOnMemoryWarning {
-            downgradePerformance()
-            releaseAllCaches()
-        }
-    }
-    
-    // MARK: - App State
-    
-    private func setupAppStateObservers() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppWillEnterForeground),
-            name: UIApplication.willEnterForegroundNotification,
-            object: nil
-        )
-    }
-    
-    @objc private func handleAppDidEnterBackground() {
-        pauseAll()
-    }
-    
-    @objc private func handleAppWillEnterForeground() {
-        // 先触发一次强制捕获，确保有纹理可用
-        invalidateAllBackgrounds()
-        
-        // 延迟一小段时间再恢复渲染循环，确保 UI 已经 layout 完毕
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.resumeAll()
-        }
-    }
-    
-    // MARK: - Statistics
-    
-    /// 当前注册的视图数量
-    public var activeViewCount: Int {
-        registeredViews.count
-    }
-    
-    /// 获取性能统计信息
-    public func getStatistics() -> PerformanceStatistics {
-        PerformanceStatistics(
-            activeViews: registeredViews.count,
-            frameRate: globalFrameRate,
-            performanceMode: performanceMode
-        )
-    }
-    
-    public struct PerformanceStatistics {
-        public let activeViews: Int
-        public let frameRate: Int
-        public let performanceMode: LiquidGlassPerformanceMode
+        view.backgroundCaptureFrameRate = performanceMode.backgroundCaptureRate
     }
 }

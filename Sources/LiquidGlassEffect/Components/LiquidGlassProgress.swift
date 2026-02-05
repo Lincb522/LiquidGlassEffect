@@ -7,13 +7,23 @@
 
 import SwiftUI
 
-/// 液态玻璃进度条
+// MARK: - Linear Progress
+
+/// 液态玻璃线性进度条
+///
+/// ```swift
+/// LiquidGlassProgress(value: 0.7, tintColor: .blue)
+/// ```
 public struct LiquidGlassProgress: View {
     
-    let value: Double
-    var tintColor: Color
-    var height: CGFloat
-    var config: LiquidGlassConfig
+    // MARK: - Properties
+    
+    private let value: Double
+    private let tintColor: Color
+    private let height: CGFloat
+    private let config: LiquidGlassConfig
+    
+    // MARK: - Init
     
     public init(
         value: Double,
@@ -27,10 +37,12 @@ public struct LiquidGlassProgress: View {
         self.config = config
     }
     
+    // MARK: - Body
+    
     public var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // 液态玻璃背景轨道
+                // 背景轨道
                 Capsule()
                     .fill(.clear)
                     .liquidGlass(config: config, cornerRadius: height / 2)
@@ -52,14 +64,24 @@ public struct LiquidGlassProgress: View {
     }
 }
 
+// MARK: - Circular Progress
+
 /// 液态玻璃圆形进度
+///
+/// ```swift
+/// LiquidGlassCircularProgress(value: 0.7, tintColor: .blue)
+/// ```
 public struct LiquidGlassCircularProgress: View {
     
-    let value: Double
-    var tintColor: Color
-    var lineWidth: CGFloat
-    var size: CGFloat
-    var config: LiquidGlassConfig
+    // MARK: - Properties
+    
+    private let value: Double
+    private let tintColor: Color
+    private let lineWidth: CGFloat
+    private let size: CGFloat
+    private let config: LiquidGlassConfig
+    
+    // MARK: - Init
     
     public init(
         value: Double,
@@ -75,9 +97,11 @@ public struct LiquidGlassCircularProgress: View {
         self.config = config
     }
     
+    // MARK: - Body
+    
     public var body: some View {
         ZStack {
-            // 液态玻璃背景圆
+            // 背景圆
             Circle()
                 .fill(.clear)
                 .liquidGlass(config: config, cornerRadius: size / 2)
@@ -99,5 +123,50 @@ public struct LiquidGlassCircularProgress: View {
                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: value)
         }
         .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Indeterminate Progress
+
+/// 液态玻璃不确定进度指示器
+public struct LiquidGlassIndeterminateProgress: View {
+    
+    // MARK: - Properties
+    
+    private let tintColor: Color
+    private let size: CGFloat
+    
+    @State private var isAnimating = false
+    
+    // MARK: - Init
+    
+    public init(
+        tintColor: Color = .white,
+        size: CGFloat = 40
+    ) {
+        self.tintColor = tintColor
+        self.size = size
+    }
+    
+    // MARK: - Body
+    
+    public var body: some View {
+        ZStack {
+            Circle()
+                .fill(.clear)
+                .liquidGlass(config: .subtle, cornerRadius: size / 2)
+            
+            Circle()
+                .trim(from: 0, to: 0.7)
+                .stroke(tintColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(isAnimating ? 360 : 0))
+                .padding(6)
+        }
+        .frame(width: size, height: size)
+        .onAppear {
+            withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                isAnimating = true
+            }
+        }
     }
 }

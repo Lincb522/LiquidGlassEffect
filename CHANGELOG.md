@@ -1,5 +1,38 @@
 # 更新日志 (Changelog)
 
+## [2.1.0] - 2026-02-05
+
+### 🏗️ 架构重构 (Refactoring)
+- **代码拆分**: 将 `LiquidGlassView` 中的背景捕获逻辑提取到独立的 `BackdropCapture` 类
+- **模块化**: 
+  - `LiquidGlassUniforms` 独立为单独文件，添加详细参数注释
+  - `ShadowView` 从 `BackdropView` 中分离，支持自定义阴影参数
+- **纹理池优化**: `LiquidGlassTexturePool` 添加缓存限制和 LRU 策略
+- **引擎增强**: `LiquidGlassEngine` 添加线程安全锁，性能模式支持背景捕获率配置
+
+### 🧩 组件增强 (Components)
+- **新增组件**:
+  - `LiquidGlassTextButton` - 简化的文本按钮
+  - `LiquidGlassSecureField` - 密码输入框（带显示/隐藏切换）
+  - `LiquidGlassLabeledToggle` - 带标签的开关
+  - `LiquidGlassHorizontalSlider` - 水平滑块
+  - `LiquidGlassBadge` - 数字徽章
+  - `LiquidGlassToast` - 轻量级 Toast 提示
+  - `LiquidGlassIndeterminateProgress` - 不确定进度指示器
+- **按压样式**: 新增 `LiquidGlassPressableStyle` 统一管理按压动画参数
+- **组件重构**: 所有组件代码风格统一，添加完整文档注释
+
+### 📝 文档完善 (Documentation)
+- 所有公开 API 添加 DocC 风格注释
+- README 更新组件列表和项目结构
+- 代码示例更新
+
+### ⚡️ 性能优化 (Performance)
+- `LiquidGlassView` 代码量从 ~400 行精简到 ~150 行
+- 移除冗余的状态检查和重复代码
+
+---
+
 ## [2.0.0] - 2026-02-04
 
 ### 🚀 架构升级 (Architecture)
@@ -21,30 +54,25 @@
 - 新增 `LiquidGlassGroup { ... }` 容器。
 - `LiquidGlassModifier` 内部逻辑更新，支持可选的 `LiquidGlassGroupCoordinator` 注入。
 
+---
+
 ## [1.2.0] - 2026-02-04
 
 ### 🐛 缺陷修复 (Bug Fixes)
 - **TabBar 动画修复**: 重构了 `LiquidGlassTabBar`, `LiquidGlassLabeledTabBar` 和 `LiquidGlassPillTabBar`，使用 `matchedGeometryEffect` 替代条件渲染，实现了选中气泡在 Tab 间的平滑流动动画。
-- **点击穿透问题**: 修复了 `LiquidGlassView` 拦截下层视图点击事件的问题。现在通过重写 `hitTest`，允许点击事件穿透到背景层（除非点击的是其子视图）。
-- **黑框/闪烁修复**: 
-    - 增强了 Metal 渲染的异常处理，当纹理未就绪时不执行绘制，避免显示黑色背景。
-    - 优化了应用从后台返回前台的恢复逻辑，强制预先捕获一次背景并延迟渲染，彻底解决了恢复时的黑框闪烁问题。
+- **点击穿透问题**: 修复了 `LiquidGlassView` 拦截下层视图点击事件的问题。
+- **黑框/闪烁修复**: 增强了 Metal 渲染的异常处理，优化了应用从后台返回前台的恢复逻辑。
 
 ### ⚡️ 体验优化 (Improvements)
-- **智能动态帧率**: 引入了位置变化检测机制。
-    - **滑动时**: 自动检测视图位置变化，忽略节流限制，强制以 60fps 刷新背景，解决了滑动 ScrollView 时“背景滞后/带着走”的视觉延迟问题。
-    - **静止时**: 自动恢复到低帧率（默认 30fps）模式，保持省电特性。
-    - 无需手动介入，自动兼顾流畅性与续航。
+- **智能动态帧率**: 引入了位置变化检测机制，滑动时自动升频至 60fps，静止时回落。
+
+---
 
 ## [1.1.0] - 2026-02-04
 
 ### 🚀 新特性 (Features)
-- **背景捕获节流 (Background Capture Throttling)**: 新增 `backgroundCaptureFrameRate` 参数，允许开发者独立控制背景更新帧率（默认 30fps）。在不影响前景光效流畅度（60fps）的同时，大幅降低 CPU 占用。
-- **性能优化 API**: 所有 UI 组件（`LiquidGlassCard`, `LiquidGlassButton`, `LiquidGlassSlider` 等）和 `liquidGlass()` modifier 均支持自定义背景捕获帧率。
+- **背景捕获节流**: 新增 `backgroundCaptureFrameRate` 参数，允许独立控制背景更新帧率。
+- **性能优化 API**: 所有 UI 组件均支持自定义背景捕获帧率。
 
 ### ⚡️ 性能优化 (Performance)
-- **Shader 算法升级**: 优化了 `LiquidGlassShader.metal` 中的法线计算逻辑，从中心差分改为前向差分，减少了 50% 的 SDF 采样次数，显著降低 GPU 负载。
-- **CPU 负载降低**: 默认启用的背景捕获节流机制使主线程 `drawHierarchy` 调用频率减半。
-
-### 📱 演示应用 (Demo)
-- 更新了 Demo 应用的 "Controls" 页面，增加了背景捕获帧率调节滑块，方便直观感受性能优化效果。
+- **Shader 算法升级**: 优化法线计算，减少 50% 的 SDF 采样次数。

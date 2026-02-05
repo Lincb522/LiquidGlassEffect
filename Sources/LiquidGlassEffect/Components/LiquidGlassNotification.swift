@@ -7,17 +7,33 @@
 
 import SwiftUI
 
+// MARK: - Notification
+
 /// 液态玻璃通知卡片
+///
+/// 适用于推送通知、消息提示等场景。
+///
+/// ```swift
+/// LiquidGlassNotification(
+///     icon: "bell.fill",
+///     title: "New Message",
+///     message: "You have a new message"
+/// )
+/// ```
 public struct LiquidGlassNotification: View {
     
-    let icon: String
-    let title: String
-    let message: String
-    var iconColor: Color
-    var config: LiquidGlassConfig
-    var onTap: (() -> Void)?
+    // MARK: - Properties
+    
+    private let icon: String
+    private let title: String
+    private let message: String
+    private let iconColor: Color
+    private let config: LiquidGlassConfig
+    private let onTap: (() -> Void)?
     
     @State private var isPressed = false
+    
+    // MARK: - Init
     
     public init(
         icon: String,
@@ -35,8 +51,11 @@ public struct LiquidGlassNotification: View {
         self.onTap = onTap
     }
     
+    // MARK: - Body
+    
     public var body: some View {
         HStack(spacing: 12) {
+            // 图标
             ZStack {
                 Circle()
                     .fill(iconColor.opacity(0.2))
@@ -47,6 +66,7 @@ public struct LiquidGlassNotification: View {
                     .foregroundStyle(iconColor)
             }
             
+            // 文本
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
@@ -72,5 +92,46 @@ public struct LiquidGlassNotification: View {
                 onTap()
             }
         }
+    }
+}
+
+// MARK: - Toast
+
+/// 液态玻璃 Toast 提示
+///
+/// 轻量级的提示组件，适用于操作反馈。
+public struct LiquidGlassToast: View {
+    
+    // MARK: - Properties
+    
+    private let message: String
+    private let icon: String?
+    
+    // MARK: - Init
+    
+    public init(
+        _ message: String,
+        icon: String? = nil
+    ) {
+        self.message = message
+        self.icon = icon
+    }
+    
+    // MARK: - Body
+    
+    public var body: some View {
+        HStack(spacing: 8) {
+            if let icon = icon {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+            }
+            
+            Text(message)
+                .font(.system(size: 14, weight: .medium))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .liquidGlass(config: .subtle, cornerRadius: 20)
     }
 }

@@ -11,10 +11,12 @@
 
 import Foundation
 
+// MARK: - Library Info
+
 /// LiquidGlassEffect 库信息
 public enum LiquidGlassEffectInfo {
     /// 库版本
-    public static let version = "2.0.0"
+    public static let version = "2.1.0"
     
     /// 最低 iOS 版本
     public static let minimumIOSVersion = "15.0"
@@ -23,24 +25,32 @@ public enum LiquidGlassEffectInfo {
     public static let credits = "https://github.com/DnV1eX/LiquidGlassKit"
 }
 
+// MARK: - Public API Overview
+
 /*
- Public API:
- 
- ## Core
+ ## Core（核心）
  - LiquidGlassConfig          配置
  - LiquidGlassUniforms        Shader 参数
  - LiquidGlassView            MTKView 实现
- - LiquidGlassRenderer        渲染器
- - LiquidGlassEngine          性能引擎
+ - LiquidGlassRenderer        渲染器（单例）
+ - LiquidGlassEngine          性能引擎（单例）
  - LiquidGlassPerformanceMode 性能模式
+ - LiquidGlassTexturePool     纹理池（单例）
+ 
+ ## Internal（内部）
+ - BackdropView               背景捕获视图
+ - BackdropCapture            背景捕获管理器
+ - ShadowView                 阴影视图
+ - ZeroCopyBridge             零拷贝纹理桥接
  
  ## SwiftUI
  - LiquidGlassMetalView       UIViewRepresentable
  - View.liquidGlass()         修饰器
  - View.liquidGlassLens()     镜头效果修饰器
  - View.liquidGlassSubtle()   轻微效果修饰器
+ - LiquidGlassGroup           共享背景容器
  
- ## Components
+ ## Components（组件）
  - LiquidGlassButton          按钮
  - LiquidGlassIconButton      图标按钮
  - LiquidGlassCard            卡片

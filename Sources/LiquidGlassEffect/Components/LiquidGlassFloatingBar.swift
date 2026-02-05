@@ -2,18 +2,21 @@
 //  LiquidGlassFloatingBar.swift
 //  LiquidGlassEffect
 //
-//  iOS 26 风格液态玻璃悬浮栏
-//  Credits: https://github.com/DnV1eX/LiquidGlassKit
+//  iOS 26 风格液态玻璃悬浮栏和 TabBar
 //
 
 import SwiftUI
 
+// MARK: - Floating Bar
+
 /// 液态玻璃悬浮栏
+///
+/// 适用于底部工具栏、播放控制栏等场景。
 public struct LiquidGlassFloatingBar<Content: View>: View {
     
-    let content: Content
-    var cornerRadius: CGFloat
-    var config: LiquidGlassConfig
+    private let content: Content
+    private let cornerRadius: CGFloat
+    private let config: LiquidGlassConfig
     
     public init(
         cornerRadius: CGFloat = 28,
@@ -33,24 +36,14 @@ public struct LiquidGlassFloatingBar<Content: View>: View {
     }
 }
 
-// MARK: - iOS 26 风格 TabBar
+// MARK: - Tab Bar
 
 /// iOS 26 风格液态玻璃 TabBar
-/// 特点：选中项有独立的液态玻璃气泡，切换时气泡平滑流动
+///
+/// 选中项有独立的液态玻璃气泡，切换时气泡平滑流动。
 public struct LiquidGlassTabBar: View {
     
-    @Binding var selectedIndex: Int
-    let items: [TabBarItem]
-    var config: LiquidGlassConfig
-    
-    /// 每个 tab 的宽度
-    private let itemWidth: CGFloat = 52
-    /// 每个 tab 的高度
-    private let itemHeight: CGFloat = 36
-    /// 内边距
-    private let padding: CGFloat = 6
-    
-    @Namespace private var animationNamespace
+    // MARK: - Types
     
     public struct TabBarItem: Identifiable {
         public let id: Int
@@ -64,6 +57,20 @@ public struct LiquidGlassTabBar: View {
         }
     }
     
+    // MARK: - Properties
+    
+    @Binding var selectedIndex: Int
+    let items: [TabBarItem]
+    var config: LiquidGlassConfig
+    
+    private let itemWidth: CGFloat = 52
+    private let itemHeight: CGFloat = 36
+    private let padding: CGFloat = 6
+    
+    @Namespace private var animationNamespace
+    
+    // MARK: - Init
+    
     public init(
         selectedIndex: Binding<Int>,
         items: [TabBarItem],
@@ -74,8 +81,9 @@ public struct LiquidGlassTabBar: View {
         self.config = config
     }
     
+    // MARK: - Body
+    
     public var body: some View {
-        // 外层容器 - 使用液态玻璃效果
         ZStack {
             // 背景玻璃层
             LiquidGlassContainer(config: .regular, cornerRadius: (itemHeight + padding * 2) / 2) {
@@ -86,7 +94,7 @@ public struct LiquidGlassTabBar: View {
                     )
             }
             
-            // 选中气泡层 (独立出来以实现平滑移动)
+            // 选中气泡层
             HStack(spacing: 0) {
                 ForEach(items) { item in
                     if selectedIndex == item.id {
@@ -107,10 +115,9 @@ public struct LiquidGlassTabBar: View {
             // 内容层
             HStack(spacing: 0) {
                 ForEach(items) { item in
-                    TabItemView(
+                    TabItemButton(
                         item: item,
                         isSelected: selectedIndex == item.id,
-                        config: config,
                         itemWidth: itemWidth,
                         itemHeight: itemHeight
                     ) {
@@ -125,12 +132,11 @@ public struct LiquidGlassTabBar: View {
     }
 }
 
-// MARK: - Tab Item View
+// MARK: - Tab Item Button
 
-private struct TabItemView: View {
+private struct TabItemButton: View {
     let item: LiquidGlassTabBar.TabBarItem
     let isSelected: Bool
-    let config: LiquidGlassConfig
     let itemWidth: CGFloat
     let itemHeight: CGFloat
     let action: () -> Void
@@ -139,67 +145,30 @@ private struct TabItemView: View {
     
     var body: some View {
         Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.impactOccurred()
-            
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             isPressed = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isPressed = false
             }
             action()
         }) {
-            ZStack {
-                // 图标
-                Image(systemName: isSelected ? (item.activeIcon ?? item.icon) : item.icon)
-                    .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
-                    .foregroundStyle(isSelected ? .white : .white.opacity(0.6))
-                    .scaleEffect(isPressed ? 0.8 : (isSelected ? 1.05 : 1.0))
-                    .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-            }
-            .frame(width: itemWidth, height: itemHeight)
-            .contentShape(Rectangle()) // 扩大点击区域
+            Image(systemName: isSelected ? (item.activeIcon ?? item.icon) : item.icon)
+                .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
+                .foregroundStyle(isSelected ? .white : .white.opacity(0.6))
+                .scaleEffect(isPressed ? 0.8 : (isSelected ? 1.05 : 1.0))
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+                .frame(width: itemWidth, height: itemHeight)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Liquid Glass Container (内部使用)
+// MARK: - Labeled Tab Bar
 
-/// 液态玻璃容器 - 用于包裹内容
-public struct LiquidGlassContainer<Content: View>: View {
-    let config: LiquidGlassConfig
-    let cornerRadius: CGFloat
-    let content: Content
-    
-    public init(
-        config: LiquidGlassConfig = .regular,
-        cornerRadius: CGFloat = 20,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.config = config
-        self.cornerRadius = cornerRadius
-        self.content = content()
-    }
-    
-    public var body: some View {
-        content
-            .background {
-                LiquidGlassMetalView(config: config, cornerRadius: cornerRadius)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-}
-
-// MARK: - 带文字标签的 TabBar
-
-/// iOS 26 风格带文字标签的 TabBar
+/// 带文字标签的 TabBar
 public struct LiquidGlassLabeledTabBar: View {
-    
-    @Binding var selectedIndex: Int
-    let items: [LabeledTabItem]
-    var config: LiquidGlassConfig
-    @Namespace private var animationNamespace
     
     public struct LabeledTabItem: Identifiable {
         public let id: Int
@@ -212,6 +181,12 @@ public struct LiquidGlassLabeledTabBar: View {
             self.label = label
         }
     }
+    
+    @Binding var selectedIndex: Int
+    let items: [LabeledTabItem]
+    var config: LiquidGlassConfig
+    
+    @Namespace private var animationNamespace
     
     public init(
         selectedIndex: Binding<Int>,
@@ -227,7 +202,7 @@ public struct LiquidGlassLabeledTabBar: View {
         LiquidGlassContainer(config: .regular, cornerRadius: 28) {
             HStack(spacing: 4) {
                 ForEach(items) { item in
-                    LabeledTabItemView(
+                    LabeledTabItemButton(
                         item: item,
                         isSelected: selectedIndex == item.id,
                         config: config,
@@ -244,7 +219,7 @@ public struct LiquidGlassLabeledTabBar: View {
     }
 }
 
-private struct LabeledTabItemView: View {
+private struct LabeledTabItemButton: View {
     let item: LiquidGlassLabeledTabBar.LabeledTabItem
     let isSelected: Bool
     let config: LiquidGlassConfig
@@ -255,9 +230,7 @@ private struct LabeledTabItemView: View {
     
     var body: some View {
         Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.impactOccurred()
-            
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             isPressed = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isPressed = false
@@ -294,15 +267,10 @@ private struct LabeledTabItemView: View {
     }
 }
 
-// MARK: - Pill TabBar (药丸形状)
+// MARK: - Pill Tab Bar
 
-/// iOS 26 风格药丸形状 TabBar - 更紧凑的设计
+/// 药丸形状 TabBar - 更紧凑的设计
 public struct LiquidGlassPillTabBar: View {
-    
-    @Binding var selectedIndex: Int
-    let items: [PillTabItem]
-    var config: LiquidGlassConfig
-    @Namespace private var animationNamespace
     
     public struct PillTabItem: Identifiable {
         public let id: Int
@@ -313,6 +281,12 @@ public struct LiquidGlassPillTabBar: View {
             self.icon = icon
         }
     }
+    
+    @Binding var selectedIndex: Int
+    let items: [PillTabItem]
+    var config: LiquidGlassConfig
+    
+    @Namespace private var animationNamespace
     
     public init(
         selectedIndex: Binding<Int>,
@@ -328,7 +302,7 @@ public struct LiquidGlassPillTabBar: View {
         LiquidGlassContainer(config: .regular, cornerRadius: 24) {
             HStack(spacing: 2) {
                 ForEach(items) { item in
-                    PillTabItemView(
+                    PillTabItemButton(
                         item: item,
                         isSelected: selectedIndex == item.id,
                         config: config,
@@ -345,7 +319,7 @@ public struct LiquidGlassPillTabBar: View {
     }
 }
 
-private struct PillTabItemView: View {
+private struct PillTabItemButton: View {
     let item: LiquidGlassPillTabBar.PillTabItem
     let isSelected: Bool
     let config: LiquidGlassConfig
@@ -356,9 +330,7 @@ private struct PillTabItemView: View {
     
     var body: some View {
         Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .soft)
-            generator.impactOccurred()
-            
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             isPressed = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                 isPressed = false
