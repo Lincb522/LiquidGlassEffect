@@ -1,0 +1,461 @@
+//
+//  LiquidGlassView.swift
+//  LiquidGlassEffect
+//
+//  液态玻璃效果 MTKView（高性能版）
+//  Credits: https://github.com/DnV1eX/LiquidGlassKit
+//
+
+import UIKit
+import MetalKit
+import MetalPerformanceShaders
+
+/// 液态玻璃效果视图
+public final class LiquidGlassView: MTKView {
+    
+    public let config: LiquidGlassConfig
+    
+    private var commandQueue: MTLCommandQueue?
+    private var uniformsBuffer: MTLBuffer?
+    private var zeroCopyBridge: ZeroCopyBridge?
+    private var backgroundTexture: MTLTexture?
+    private let backdropView = BackdropView()
+    private weak var shadowView: ShadowView?
+    
+    // MARK: - 性能优化
+    
+    /// 帧率限制
+    public var targetFrameRate: Int = 60 {
+        didSet { preferredFramesPerSecond = targetFrameRate }
+    }
+    
+    /// 背景捕获帧率限制（默认 30fps，降低 CPU 占用）
+    public var backgroundCaptureFrameRate: Double = 30.0
+    
+    /// 上次捕获背景的时间
+    private var lastCaptureTime: CFTimeInterval = 0
+    
+    /// 上次记录的全局位置
+    private var lastGlobalPosition: CGPoint = .zero
+    
+    /// 是否自动捕获背景
+    public var autoCapture: Bool = true
+    
+    /// 上次布局的尺寸
+    private var lastLayoutSize: CGSize = .zero
+    
+    /// 触摸点
+    public var touchPoint: CGPoint? = nil
+    
+    /// 玻璃矩形区域
+    public var frames: [CGRect] = []
+    
+    /// 共享协调器
+    public weak var groupCoordinator: LiquidGlassGroupCoordinator?
+    
+    /// Metal 是否可用
+    public private(set) var isMetalAvailable: Bool = false
+    
+    /// 是否已注册到引擎
+    private var isRegisteredToEngine: Bool = false
+    
+    /// 双缓冲纹理 - 避免黑框
+    private var textureA: MTLTexture? {
+        didSet { if let old = oldValue, old !== textureA { LiquidGlassTexturePool.shared.checkin(old) } }
+    }
+    private var textureB: MTLTexture? {
+        didSet { if let old = oldValue, old !== textureB { LiquidGlassTexturePool.shared.checkin(old) } }
+    }
+    private var useTextureA: Bool = true
+    
+    // MARK: - Static Snapshot
+    
+    private var staticSnapshotTexture: MTLTexture? {
+        didSet { if let old = oldValue, old !== staticSnapshotTexture { LiquidGlassTexturePool.shared.checkin(old) } }
+    }
+    private var isFrozen: Bool = false
+    
+    // MARK: - Init
+    
+    public init(_ config: LiquidGlassConfig = .regular) {
+        self.config = config
+        super.init(frame: .zero, device: LiquidGlassRenderer.shared?.device)
+        
+        if config.shadowOverlay {
+            let shadow = ShadowView()
+            addSubview(shadow)
+            self.shadowView = shadow
+        }
+        
+        setupMetal()
+        registerToEngine()
+    }
+    
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) not implemented")
+    }
+    
+    deinit {
+        unregisterFromEngine()
+    }
+    
+    private func setupMetal() {
+        guard let device = device,
+              let queue = device.makeCommandQueue(),
+              let buffer = device.makeBuffer(length: MemoryLayout<LiquidGlassUniforms>.stride, options: .storageModeShared)
+        else {
+            print("[LiquidGlassEffect] Metal device not available")
+            isMetalAvailable = false
+            return
+        }
+        
+        commandQueue = queue
+        uniformsBuffer = buffer
+        zeroCopyBridge = ZeroCopyBridge(device: device)
+        
+        // 优化设置
+        isOpaque = false
+        layer.isOpaque = false
+        backgroundColor = .clear
+        clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+        isPaused = false
+        preferredFramesPerSecond = 60
+        enableSetNeedsDisplay = false
+        presentsWithTransaction = false
+        framebufferOnly = false  // 允许读取 framebuffer
+        
+        isMetalAvailable = true
+    }
+    
+    // MARK: - Engine Integration
+    
+    private func registerToEngine() {
+        guard !isRegisteredToEngine else { return }
+        LiquidGlassEngine.shared.register(self)
+        isRegisteredToEngine = true
+    }
+    
+    private func unregisterFromEngine() {
+        guard isRegisteredToEngine else { return }
+        LiquidGlassEngine.shared.unregister(self)
+        isRegisteredToEngine = false
+    }
+    
+    // MARK: - Public API
+    
+    public func captureBackground() {
+        textureA = nil
+        textureB = nil
+    }
+    
+    public func setCaptureInterval(_ interval: Int) {
+        // 兼容旧 API
+    }
+    
+    // MARK: - Background Capture
+    
+    private func captureBackdrop() {
+        guard isMetalAvailable,
+              let superview = superview,
+              let zeroCopyBridge = zeroCopyBridge else { return }
+        
+        let sizeCoeff = config.textureSizeCoefficient
+        let scaleCoeff = layer.contentsScale * config.textureScaleCoefficient
+        
+        // 使用 presentation layer 获取实时位置
+        let currentLayer = layer.presentation() ?? layer
+        let frameInSuperview = currentLayer.convert(currentLayer.bounds, to: superview.layer)
+        
+        // 使用原始 LiquidGlassKit 的捕获方式
+        let captureSize = CGSize(
+            width: frameInSuperview.width * sizeCoeff,
+            height: frameInSuperview.height * sizeCoeff
+        )
+        let captureOrigin = CGPoint(
+            x: frameInSuperview.midX - captureSize.width / 2,
+            y: frameInSuperview.midY - captureSize.height / 2
+        )
+        
+        backdropView.frame = CGRect(origin: captureOrigin, size: captureSize)
+        
+        if backdropView.superview !== superview {
+            superview.insertSubview(backdropView, belowSubview: self)
+        }
+        
+        // 使用 drawHierarchy 捕获
+        let newTexture = zeroCopyBridge.render { context in
+            context.scaleBy(x: scaleCoeff, y: scaleCoeff)
+            UIGraphicsPushContext(context)
+            self.backdropView.drawHierarchy(in: self.backdropView.bounds, afterScreenUpdates: false)
+            UIGraphicsPopContext()
+        }
+        
+        // 双缓冲：交替使用两个纹理槽
+        if let texture = newTexture {
+            if useTextureA {
+                textureA = texture
+            } else {
+                textureB = texture
+            }
+            useTextureA.toggle()
+            
+            // 异步模糊
+            if config.blurRadius > 0 {
+                applyBlurAsync(to: texture)
+            }
+        }
+    }
+    
+    /// 获取当前可用的纹理（双缓冲）
+    private var currentTexture: MTLTexture? {
+        // 优先使用最新的纹理，如果没有则使用备用
+        if useTextureA {
+            return textureB ?? textureA
+        } else {
+            return textureA ?? textureB
+        }
+    }
+    
+    private func applyBlurAsync(to texture: MTLTexture) {
+        guard let device = device,
+              let commandQueue = commandQueue,
+              let commandBuffer = commandQueue.makeCommandBuffer() else { return }
+        
+        var tex = texture
+        let sigma = Float(config.blurRadius * Double(layer.contentsScale))
+        let blur = MPSImageGaussianBlur(device: device, sigma: sigma)
+        blur.edgeMode = .clamp
+        blur.encode(commandBuffer: commandBuffer, inPlaceTexture: &tex, fallbackCopyAllocator: nil)
+        commandBuffer.commit()
+    }
+    
+    private func updateUniforms() {
+        guard let uniformsBuffer = uniformsBuffer else { return }
+        
+        var uniforms = config.uniforms
+        let scale = layer.contentsScale
+        
+        uniforms.resolution = .init(x: Float(bounds.width * scale), y: Float(bounds.height * scale))
+        uniforms.contentsScale = Float(scale)
+        uniforms.shapeMergeSmoothness = 0.2
+        uniforms.cornerRadius = Float(layer.cornerRadius)
+        
+        // 计算 UV 映射
+        if let coordinator = groupCoordinator {
+            // print("DEBUG: LiquidGlassView using shared coordinator")
+            // 如果处于共享组中，计算相对于组捕获区域的 UV 偏移和缩放
+            // 假设 captureRect 是全屏或者父视图坐标系
+            // 需要将当前视图的 frame 映射到 captureRect 中
+            let captureRect = coordinator.captureRect
+            
+            // 获取当前视图在 Window 中的坐标 (简化处理，假设 captureRect 也是 Window 坐标)
+            // 实际上 coordinator 应该提供更精确的相对坐标计算方法
+            // 这里我们使用 convert 来获取相对坐标，但这需要在 layoutSubviews 中持续更新
+            if let window = window {
+                let globalFrame = convert(bounds, to: window)
+                
+                // UV Scale = view.width / capture.width
+                let scaleX = Float(globalFrame.width / captureRect.width)
+                let scaleY = Float(globalFrame.height / captureRect.height)
+                
+                // UV Offset = (view.x - capture.x) / capture.width
+                let offsetX = Float((globalFrame.minX - captureRect.minX) / captureRect.width)
+                let offsetY = Float((globalFrame.minY - captureRect.minY) / captureRect.height)
+                
+                uniforms.uvScale = SIMD2<Float>(scaleX, scaleY)
+                uniforms.uvOffset = SIMD2<Float>(offsetX, offsetY)
+            } else {
+                // Fallback
+                uniforms.uvScale = SIMD2<Float>(1.0, 1.0)
+                uniforms.uvOffset = SIMD2<Float>(0.0, 0.0)
+            }
+        } else {
+            // 独立模式，使用完整纹理
+            uniforms.uvScale = SIMD2<Float>(1.0, 1.0)
+            uniforms.uvOffset = SIMD2<Float>(0.0, 0.0)
+        }
+        
+        if let touchPoint = touchPoint {
+            uniforms.touchPoint = .init(x: Float(touchPoint.x), y: Float(touchPoint.y))
+        }
+        
+        let effectiveFrames = frames.isEmpty ? [bounds] : frames
+        uniforms.rectangleCount = Int32(min(effectiveFrames.count, LiquidGlassConfig.maxRectangles))
+        
+        let ptr = uniformsBuffer.contents().assumingMemoryBound(to: LiquidGlassUniforms.self)
+        ptr.pointee = uniforms
+        
+        withUnsafeMutablePointer(to: &ptr.pointee.rectangles) { rectPtr in
+            let base = UnsafeMutableRawPointer(rectPtr).assumingMemoryBound(to: SIMD4<Float>.self)
+            for i in 0..<LiquidGlassConfig.maxRectangles {
+                if i < effectiveFrames.count {
+                    let frame = effectiveFrames[i]
+                    base[i] = SIMD4<Float>(Float(frame.origin.x), Float(frame.origin.y), Float(frame.width), Float(frame.height))
+                } else {
+                    base[i] = .zero
+                }
+            }
+        }
+    }
+    
+    // MARK: - Layout
+    
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        guard isMetalAvailable else { return }
+        
+        let currentSize = bounds.size
+        guard currentSize != lastLayoutSize, currentSize.width > 0, currentSize.height > 0 else { return }
+        lastLayoutSize = currentSize
+        
+        updateUniforms()
+        
+        // 扩大 buffer
+        let scale = layer.contentsScale * CGFloat(config.textureSizeCoefficient * config.textureScaleCoefficient)
+        zeroCopyBridge?.setupBuffer(
+            width: Int(bounds.width * scale),
+            height: Int(bounds.height * scale)
+        )
+        shadowView?.frame = bounds
+    }
+    
+    // MARK: - Draw
+    
+    public override func draw(_ rect: CGRect) {
+        guard isMetalAvailable, let renderer = LiquidGlassRenderer.shared else { return }
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        
+        // 捕获背景（带节流控制和动态位置检测）
+        // 如果有 groupCoordinator，则不自己捕获背景，而是等待 coordinator 提供
+        if autoCapture && groupCoordinator == nil {
+            let currentTime = CACurrentMediaTime()
+            let interval = 1.0 / backgroundCaptureFrameRate
+            
+            // 计算全局位置
+            let currentGlobalPosition = convert(bounds.origin, to: nil)
+            let positionChanged = abs(currentGlobalPosition.x - lastGlobalPosition.x) > 0.5 || 
+                                  abs(currentGlobalPosition.y - lastGlobalPosition.y) > 0.5
+            
+            // 如果位置发生变化（正在滑动），或者达到了节流时间间隔，则更新背景
+            if positionChanged || currentTime - lastCaptureTime >= interval {
+                captureBackdrop()
+                lastCaptureTime = currentTime
+                lastGlobalPosition = currentGlobalPosition
+                
+                // Active: position changed
+                updateFrozenState(isStatic: false)
+            } else if currentTime - lastCaptureTime > 2.0 {
+                // If no update for 2 seconds, consider static
+                // Note: This is a simplified check. Real static check needs more inputs.
+                // For now, let's just trigger it if we are really idle.
+                // But wait, captureBackdrop is called inside draw(), which is called by display link.
+                // If position hasn't changed, we might be static.
+                if !positionChanged {
+                     updateFrozenState(isStatic: true)
+                }
+            }
+        }
+        
+        // 使用双缓冲纹理或静态快照
+        var textureToUse = isFrozen ? staticSnapshotTexture : currentTexture
+        
+        // 如果有共享纹理，优先使用
+        if let shared = groupCoordinator?.sharedTexture {
+            textureToUse = shared
+        }
+        
+        guard let drawable = currentDrawable,
+              let renderPassDesc = currentRenderPassDescriptor,
+              let commandBuffer = commandQueue?.makeCommandBuffer() else { return }
+        
+        // 透明清除色
+        renderPassDesc.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+        renderPassDesc.colorAttachments[0].loadAction = .clear
+        
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDesc) else { return }
+        
+        // 有纹理才渲染
+        if let texture = textureToUse {
+            encoder.setRenderPipelineState(renderer.pipelineState)
+            encoder.setFragmentBuffer(uniformsBuffer, offset: 0, index: 0)
+            encoder.setFragmentTexture(texture, index: 0)
+            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        } else {
+            // 如果没有纹理，不执行绘制，保持清除色（全透明）
+            // 避免绘制出未初始化的黑色内容
+        }
+        
+        encoder.endEncoding()
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
+    }
+    
+    // MARK: - Memory Management
+    
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            isPaused = true
+        } else {
+            isPaused = false
+            textureA = nil
+            textureB = nil
+        }
+    }
+    
+    // MARK: - Hit Test
+    
+    /// 默认不拦截点击事件，允许穿透到下层视图
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let view = super.hitTest(point, with: event)
+        return view == self ? nil : view
+    }
+    
+    public func releaseCache() {
+        // Explicitly set to nil to trigger checkin
+        textureA = nil
+        textureB = nil
+        staticSnapshotTexture = nil
+    }
+    
+    // MARK: - Static Snapshot Logic
+    
+    private func updateFrozenState(isStatic: Bool) {
+        if isStatic {
+            // Enter frozen state
+            if !isFrozen {
+                // Render one last frame to static texture
+                // Note: For now we just use the current texture as snapshot
+                // Ideally we should make a copy, but let's see if we can reuse
+                if let current = currentTexture {
+                    // Create a persistent copy from pool
+                    let descriptor = MTLTextureDescriptor()
+                    descriptor.width = current.width
+                    descriptor.height = current.height
+                    descriptor.pixelFormat = current.pixelFormat
+                    descriptor.usage = [.shaderRead, .shaderWrite] // Assume we might write to it
+                    
+                    if let snapshot = LiquidGlassTexturePool.shared.checkout(descriptor: descriptor) {
+                        // Copy current texture to snapshot
+                        if let cmdBuffer = commandQueue?.makeCommandBuffer(),
+                           let blitEncoder = cmdBuffer.makeBlitCommandEncoder() {
+                            blitEncoder.copy(from: current, to: snapshot)
+                            blitEncoder.endEncoding()
+                            cmdBuffer.commit()
+                            staticSnapshotTexture = snapshot
+                            isFrozen = true
+                            isPaused = true // Stop render loop
+                        }
+                    }
+                }
+            }
+        } else {
+            // Exit frozen state
+            if isFrozen {
+                isFrozen = false
+                isPaused = false
+                staticSnapshotTexture = nil
+            }
+        }
+    }
+}
