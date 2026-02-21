@@ -197,10 +197,10 @@ final class BackdropCapture {
             }
             useTextureA.toggle()
             
-            // 异步模糊
-            if config.blurRadius > 0 {
-                applyBlurAsync(to: texture, contentsScale: contentsScale)
-            }
+            // 异步模糊 (已禁用，因其在部分设备上会导致纹理损坏/丢失)
+            // if config.blurRadius > 0 {
+            //     applyBlurAsync(to: texture, contentsScale: contentsScale)
+            // }
         }
     }
     
