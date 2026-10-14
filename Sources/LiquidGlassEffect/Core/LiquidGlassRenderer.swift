@@ -14,6 +14,9 @@ public final class LiquidGlassRenderer {
     
     public let device: MTLDevice
     public let pipelineState: MTLRenderPipelineState
+    // All views submit on one ordered queue. A grouped blur produced by an
+    // earlier command is ready before a later view samples its cached result.
+    let commandQueue: MTLCommandQueue
     
     private init?() {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -21,6 +24,9 @@ public final class LiquidGlassRenderer {
             return nil
         }
         self.device = device
+        guard let queue = device.makeCommandQueue() else { return nil }
+        queue.label = "LiquidGlass ordered render queue"
+        self.commandQueue = queue
         
         guard let library = Self.loadShaderLibrary(device: device) else {
             print("[LiquidGlassEffect] 无法加载 shader")

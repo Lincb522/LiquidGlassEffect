@@ -16,7 +16,7 @@ import Foundation
 /// LiquidGlassEffect 库信息
 public enum LiquidGlassEffectInfo {
     /// 库版本
-    public static let version = "2.1.0"
+    public static let version = "3.0.0"
     
     /// 最低 iOS 版本
     public static let minimumIOSVersion = "15.0"

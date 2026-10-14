@@ -12,13 +12,21 @@ import UIKit
 /// `CABackdropLayer` 是 Apple 的私有 API，用于捕获视图层级中位于该视图下方的内容。
 /// 这是实现实时背景模糊效果的关键组件。
 ///
-/// - Warning: 使用私有 API 可能导致 App Store 审核问题，但目前广泛使用且未被拒绝。
+/// - Warning: CABackdropLayer is a private API. This backport is not a claim of
+///   App Store compatibility; validate the chosen distribution requirements.
 public final class BackdropView: UIView {
     
     // MARK: - Layer Class
     
+    private static let backdropLayerClass: AnyClass = {
+        guard let layerClass = NSClassFromString("CABackdropLayer") else {
+            preconditionFailure("[LiquidGlassEffect] CABackdropLayer is required by the iOS backport capture path")
+        }
+        return layerClass
+    }()
+
     public override class var layerClass: AnyClass {
-        NSClassFromString("CABackdropLayer") ?? CALayer.self
+        backdropLayerClass
     }
     
     // MARK: - Init

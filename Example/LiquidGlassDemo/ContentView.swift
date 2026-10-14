@@ -10,8 +10,19 @@ import LiquidGlassEffect
 
 struct ContentView: View {
     @State private var selectedTab = 0
-    
+    @State private var showsOptics = ProcessInfo.processInfo.arguments.contains("--optics")
+
     var body: some View {
+        if showsOptics {
+            OpticsValidationView {
+                showsOptics = false
+            }
+        } else {
+            gallery
+        }
+    }
+
+    private var gallery: some View {
         ZStack {
             // 渐变背景
             LinearGradient(
@@ -82,6 +93,23 @@ struct ContentView: View {
                 .padding(.bottom, 30)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                showsOptics = true
+            } label: {
+                Label("Optics", systemImage: "circle.lefthalf.filled")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .liquidGlass(config: .regular, cornerRadius: 22)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("gallery.openOptics")
+            .accessibilityLabel("Open optical comparison")
+            .padding(.trailing, 20)
+            .padding(.top, 8)
+        }
     }
 }
 
@@ -111,6 +139,9 @@ struct ButtonsPage: View {
                         }
                         .foregroundStyle(.white)
                     }
+                    .accessibilityIdentifier("gallery.like")
+                    .accessibilityLabel("Like")
+                    .accessibilityValue(String(likeCount))
                     
                     HStack(spacing: 12) {
                         LiquidGlassButton(cornerRadius: 12, action: {}) {
@@ -150,6 +181,9 @@ struct ButtonsPage: View {
                         isActive: isBookmarked,
                         action: { isBookmarked.toggle() }
                     )
+                    .accessibilityIdentifier("gallery.bookmark")
+                    .accessibilityLabel("Bookmark")
+                    .accessibilityValue(isBookmarked ? "On" : "Off")
                     
                     LiquidGlassIconButton(
                         icon: "square.and.arrow.up",
@@ -572,6 +606,7 @@ struct PageHeader: View {
     var body: some View {
         VStack(spacing: 8) {
             Text(title)
+                .accessibilityIdentifier("gallery.page.\(title.lowercased())")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(.white)
             

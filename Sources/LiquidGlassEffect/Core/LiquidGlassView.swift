@@ -1,286 +1,300 @@
-//
-//  LiquidGlassView.swift
-//  LiquidGlassEffect
-//
-//  液态玻璃效果 MTKView（高性能版）
-//  Credits: https://github.com/DnV1eX/LiquidGlassKit
-//
-
 import UIKit
 import MetalKit
 
-/// 液态玻璃效果视图
-///
-/// 基于 Metal 的高性能液态玻璃效果实现。
-/// 支持实时背景捕获、双缓冲渲染、静态快照优化。
+/// Metal glass surface with point-space optics and an immutable captured frame.
 public final class LiquidGlassView: MTKView {
-    
-    // MARK: - Public Properties
-    
-    /// 配置
-    public let config: LiquidGlassConfig
-    
-    /// 帧率限制
+    public private(set) var config: LiquidGlassConfig
     public var targetFrameRate: Int = 60 {
-        didSet { preferredFramesPerSecond = targetFrameRate }
+        didSet { preferredFramesPerSecond = max(1, targetFrameRate) }
     }
-    
-    /// 背景捕获帧率限制
-    public var backgroundCaptureFrameRate: Double = 30.0 {
-        didSet { backdropCapture?.captureFrameRate = backgroundCaptureFrameRate }
+    public var backgroundCaptureFrameRate: Double = 30 {
+        didSet { backdropCapture?.captureFrameRate = max(1, backgroundCaptureFrameRate) }
     }
-    
-    /// 是否自动捕获背景
-    public var autoCapture: Bool = true
-    
-    /// 触摸点（用于交互效果）
-    public var touchPoint: CGPoint? = nil
-    
-    /// 玻璃矩形区域
-    public var frames: [CGRect] = []
-    
-    /// 共享协调器（用于 LiquidGlassGroup）
-    public weak var groupCoordinator: LiquidGlassGroupCoordinator?
-    
-    /// Metal 是否可用
-    public private(set) var isMetalAvailable: Bool = false
-    
-    // MARK: - Private Properties
-    
+    public var autoCapture = true
+    private var forceCaptureRequested = true
+    public var touchPoint: CGPoint?
+    public var frames: [CGRect] = [] {
+        didSet {
+            guard frames != oldValue else { return }
+            updateShadow()
+            setNeedsLayout()
+        }
+    }
+    public weak var groupCoordinator: LiquidGlassGroupCoordinator? {
+        didSet {
+            guard oldValue !== groupCoordinator else { return }
+            oldValue?.removeChild(id: captureID)
+            backdropCapture?.releaseAll()
+            groupCoordinator?.invalidate()
+        }
+    }
+    public private(set) var isMetalAvailable = false
+
+    private let captureID = UUID()
     private var commandQueue: MTLCommandQueue?
-    private var uniformsBuffer: MTLBuffer?
     private var backdropCapture: BackdropCapture?
-    private weak var shadowView: ShadowView?
-    private var lastLayoutSize: CGSize = .zero
-    private var isRegisteredToEngine: Bool = false
-    
-    // MARK: - Init
-    
+    private let blurPass = LiquidGlassBlurPass()
+    private weak var lastBlurFrame: CapturedBackdrop?
+    // A frame's scratch output must not be overwritten while the GPU samples it.
+    private let inFlight = DispatchSemaphore(value: 1)
+    private var didLogError = false
+    private var isRegistered = false
+
     public init(_ config: LiquidGlassConfig = .regular) {
         self.config = config
         super.init(frame: .zero, device: LiquidGlassRenderer.shared?.device)
-        
-        if config.shadowOverlay {
-            let shadow = ShadowView()
-            addSubview(shadow)
-            self.shadowView = shadow
-        }
-        
-        setupMetal()
-        registerToEngine()
-    }
-    
-    required init(coder: NSCoder) {
-        fatalError("init(coder:) not implemented")
-    }
-    
-    deinit {
-        unregisterFromEngine()
-    }
-    
-    // MARK: - Setup
-    
-    private func setupMetal() {
-        guard let device = device,
-              let queue = device.makeCommandQueue(),
-              let buffer = device.makeBuffer(length: MemoryLayout<LiquidGlassUniforms>.stride, options: .storageModeShared)
-        else {
-            print("[LiquidGlassEffect] Metal device not available")
-            isMetalAvailable = false
-            return
-        }
-        
-        commandQueue = queue
-        uniformsBuffer = buffer
-        backdropCapture = BackdropCapture(device: device, commandQueue: queue, config: config)
-        backdropCapture?.captureFrameRate = backgroundCaptureFrameRate
-        
-        configureView()
-        isMetalAvailable = true
-    }
-    
-    private func configureView() {
         isOpaque = false
         layer.isOpaque = false
+        clipsToBounds = false
         backgroundColor = .clear
-        clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
-        isPaused = false
-        preferredFramesPerSecond = 60
+        clearColor = MTLClearColorMake(0, 0, 0, 0)
+        colorPixelFormat = .bgra8Unorm
+        framebufferOnly = true
         enableSetNeedsDisplay = false
-        presentsWithTransaction = false
-        framebufferOnly = false
-    }
-    
-    // MARK: - Engine Integration
-    
-    private func registerToEngine() {
-        guard !isRegisteredToEngine else { return }
-        LiquidGlassEngine.shared.register(self)
-        isRegisteredToEngine = true
-    }
-    
-    private func unregisterFromEngine() {
-        guard isRegisteredToEngine else { return }
-        LiquidGlassEngine.shared.unregister(self)
-        isRegisteredToEngine = false
-    }
-    
-    // MARK: - Public API
-    
-    /// 强制重新捕获背景
-    public func captureBackground() {
-        backdropCapture?.invalidate()
-    }
-    
-    /// 释放缓存
-    public func releaseCache() {
-        backdropCapture?.releaseAll()
-    }
-    
-    /// 设置捕获间隔（兼容旧 API）
-    public func setCaptureInterval(_ interval: Int) {
-        // 兼容旧 API
-    }
-    
-    // MARK: - Layout
-    
-    public override func layoutSubviews() {
-        super.layoutSubviews()
-        guard isMetalAvailable else { return }
-        
-        let currentSize = bounds.size
-        guard currentSize != lastLayoutSize, currentSize.width > 0, currentSize.height > 0 else { return }
-        lastLayoutSize = currentSize
-        
-        updateUniforms()
-        
-        // 更新背景捕获缓冲区
-        let scale = layer.contentsScale * CGFloat(config.textureSizeCoefficient * config.textureScaleCoefficient)
-        backdropCapture?.setupBuffer(
-            width: Int(bounds.width * scale),
-            height: Int(bounds.height * scale)
-        )
-        
-        shadowView?.frame = bounds
-    }
-    
-    // MARK: - Draw
-    
-    public override func draw(_ rect: CGRect) {
-        guard isMetalAvailable, let renderer = LiquidGlassRenderer.shared else { return }
-        guard bounds.width > 0, bounds.height > 0 else { return }
-        
-        // 捕获背景
-        if autoCapture && groupCoordinator == nil {
-            backdropCapture?.capture(for: self, contentsScale: layer.contentsScale)
-        }
-        
-        // 获取纹理
-        var textureToUse = backdropCapture?.currentTexture
-        if let shared = groupCoordinator?.sharedTexture {
-            textureToUse = shared
-        }
-        
-        // 渲染
-        guard let drawable = currentDrawable,
-              let renderPassDesc = currentRenderPassDescriptor,
-              let commandBuffer = commandQueue?.makeCommandBuffer() else { return }
-        
-        renderPassDesc.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
-        renderPassDesc.colorAttachments[0].loadAction = .clear
-        
-        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDesc) else { return }
-        
-        if let texture = textureToUse {
-            encoder.setRenderPipelineState(renderer.pipelineState)
-            encoder.setFragmentBuffer(uniformsBuffer, offset: 0, index: 0)
-            encoder.setFragmentTexture(texture, index: 0)
-            encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
-        }
-        
-        encoder.endEncoding()
-        commandBuffer.present(drawable)
-        commandBuffer.commit()
-    }
-    
-    // MARK: - Uniforms
-    
-    private func updateUniforms() {
-        guard let uniformsBuffer = uniformsBuffer else { return }
-        
-        var uniforms = config.uniforms
-        let scale = layer.contentsScale
-        
-        uniforms.resolution = .init(x: Float(bounds.width * scale), y: Float(bounds.height * scale))
-        uniforms.contentsScale = Float(scale)
-        uniforms.shapeMergeSmoothness = 0.2
-        uniforms.cornerRadius = Float(layer.cornerRadius)
-        
-        // UV 映射
-        updateUVMapping(&uniforms)
-        
-        // 触摸点
-        if let touchPoint = touchPoint {
-            uniforms.touchPoint = .init(x: Float(touchPoint.x), y: Float(touchPoint.y))
-        }
-        
-        // 矩形区域
-        let effectiveFrames = frames.isEmpty ? [bounds] : frames
-        uniforms.rectangleCount = Int32(min(effectiveFrames.count, LiquidGlassConfig.maxRectangles))
-        
-        // 写入 buffer
-        let ptr = uniformsBuffer.contents().assumingMemoryBound(to: LiquidGlassUniforms.self)
-        ptr.pointee = uniforms
-        
-        // 写入矩形数据
-        withUnsafeMutablePointer(to: &ptr.pointee.rectangles) { rectPtr in
-            let base = UnsafeMutableRawPointer(rectPtr).assumingMemoryBound(to: SIMD4<Float>.self)
-            for i in 0..<LiquidGlassConfig.maxRectangles {
-                if i < effectiveFrames.count {
-                    let frame = effectiveFrames[i]
-                    base[i] = SIMD4<Float>(Float(frame.origin.x), Float(frame.origin.y), Float(frame.width), Float(frame.height))
-                } else {
-                    base[i] = .zero
-                }
-            }
-        }
-    }
-    
-    private func updateUVMapping(_ uniforms: inout LiquidGlassUniforms) {
-        guard let coordinator = groupCoordinator, let window = window else {
-            uniforms.uvScale = SIMD2<Float>(1.0, 1.0)
-            uniforms.uvOffset = SIMD2<Float>(0.0, 0.0)
+        isPaused = true
+        guard let device, let queue = LiquidGlassRenderer.shared?.commandQueue else {
+            reportError("Metal device or command queue is missing")
             return
         }
-        
-        let captureRect = coordinator.captureRect
-        let globalFrame = convert(bounds, to: window)
-        
-        let scaleX = Float(globalFrame.width / captureRect.width)
-        let scaleY = Float(globalFrame.height / captureRect.height)
-        let offsetX = Float((globalFrame.minX - captureRect.minX) / captureRect.width)
-        let offsetY = Float((globalFrame.minY - captureRect.minY) / captureRect.height)
-        
-        uniforms.uvScale = SIMD2<Float>(scaleX, scaleY)
-        uniforms.uvOffset = SIMD2<Float>(offsetX, offsetY)
+        commandQueue = queue
+        backdropCapture = BackdropCapture(device: device, commandQueue: queue, config: config)
+        updateShadow()
+        isMetalAvailable = true
     }
-    
-    // MARK: - Window
-    
+    required init(coder: NSCoder) { fatalError("Use init(_ config:)") }
+    deinit {
+        groupCoordinator?.removeChild(id: captureID)
+        if isRegistered { LiquidGlassEngine.shared.unregister(self) }
+    }
+
+    /// Apply SwiftUI configuration changes without replacing the native view.
+    public func updateConfiguration(_ newConfig: LiquidGlassConfig) {
+        let captureChanged = config.textureSizeCoefficient != newConfig.textureSizeCoefficient || config.textureScaleCoefficient != newConfig.textureScaleCoefficient
+        let shadowChanged = config.shadowOverlay != newConfig.shadowOverlay
+            || config.uniforms.cornerRoundnessExponent != newConfig.uniforms.cornerRoundnessExponent
+            || config.uniforms.shapeMergeSmoothness != newConfig.uniforms.shapeMergeSmoothness
+        config = newConfig
+        if captureChanged, let device, let commandQueue {
+            backdropCapture?.releaseAll()
+            backdropCapture = BackdropCapture(device: device, commandQueue: commandQueue, config: newConfig)
+            backdropCapture?.captureFrameRate = max(1, backgroundCaptureFrameRate)
+        }
+        if shadowChanged { updateShadow() }
+    }
+    public func captureBackground() {
+        forceCaptureRequested = true
+        backdropCapture?.invalidate()
+        groupCoordinator?.invalidate()
+        setNeedsDisplay()
+    }
+    public func releaseCache() {
+        backdropCapture?.releaseAll()
+        groupCoordinator?.currentFrame?.scatteredTextures.removeAll()
+        groupCoordinator?.invalidate()
+        blurPass.releaseResources()
+        lastBlurFrame = nil
+        forceCaptureRequested = true
+        // In-flight commands retain their resources. New captures replace them.
+    }
+    public func setCaptureInterval(_ interval: Int) {
+        backgroundCaptureFrameRate = Double(max(1, targetFrameRate)) / Double(max(1, interval))
+    }
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        updateShadow()
+    }
+    /// Keep SwiftUI's same-size radius updates and the optical outline in sync.
+    func updateCornerRadius(_ radius: CGFloat) {
+        guard layer.cornerRadius != radius else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.cornerRadius = radius
+        updateShadow()
+        CATransaction.commit()
+        setNeedsLayout()
+    }
+    private func updateShadow() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+
+        // Cast behind the Metal surface, never darken it with an overlay ring.
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowRadius = 3.5
+        layer.shadowOffset = CGSize(width: 0, height: 1.5)
+        layer.shadowOpacity = config.shadowOverlay ? 0.10 : 0
+        guard config.shadowOverlay else {
+            layer.shadowPath = nil
+            return
+        }
+
+        // Only the default circular rectangle has an exact UIBezierPath match.
+        // Other shapes use the actual Metal alpha, including smooth unions.
+        if frames.isEmpty,
+           config.uniforms.cornerRoundnessExponent == 2,
+           config.uniforms.shapeMergeSmoothness == 0,
+           !bounds.isEmpty {
+            let radius = max(0, min(layer.cornerRadius, min(bounds.width, bounds.height) / 2))
+            layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: radius).cgPath
+        } else {
+            layer.shadowPath = nil
+        }
+    }
+    private var windowFrame: CGRect {
+        guard let window else { return .zero }
+        let displayed = layer.presentation() ?? layer
+        return displayed.convert(displayed.bounds, to: window.layer.presentation() ?? window.layer)
+    }
+
+    public override func draw(_ rect: CGRect) {
+        guard isMetalAvailable, window != nil, bounds.width > 0, bounds.height > 0,
+              let renderer = LiquidGlassRenderer.shared,
+              inFlight.wait(timeout: .now()) == .success else { return }
+        var submitted = false
+        defer {
+            if !submitted {
+                // An encoded blur is not valid until its command was submitted.
+                blurPass.invalidate()
+                inFlight.signal()
+            }
+        }
+        let globalFrame = windowFrame
+        let captured: CapturedBackdrop?
+        if let groupCoordinator {
+            groupCoordinator.updateChildFrame(id: captureID, frame: globalFrame)
+            captured = groupCoordinator.currentFrame
+        } else {
+            if autoCapture || forceCaptureRequested {
+                let previous = backdropCapture?.currentFrame
+                backdropCapture?.capture(for: self, contentsScale: contentScaleFactor)
+                if let current = backdropCapture?.currentFrame, current !== previous {
+                    forceCaptureRequested = false
+                }
+            }
+            captured = backdropCapture?.currentFrame
+        }
+        guard let captured else { return }
+        // Coefficients >= 1 reserve overscan; < 1 is the legacy thumb magnifier.
+        let magnification = CGFloat(1 / min(config.textureSizeCoefficient, 1))
+        guard let mapping = LiquidGlassSampling.mapping(viewRect: globalFrame, captureRect: captured.captureRect, magnification: magnification),
+              let drawable = currentDrawable,
+              let pass = currentRenderPassDescriptor,
+              let commandBuffer = commandQueue?.makeCommandBuffer() else { return }
+        commandBuffer.label = "LiquidGlass blur + optics"
+        let pixelsPerPoint = CGFloat(captured.texture.width) / captured.captureRect.width
+        // CVMetalTextureCache may return the same texture object for a reused
+        // IOSurface. Frame identity, not texture identity, tracks new pixels.
+        if lastBlurFrame !== captured { blurPass.invalidate() }
+        lastBlurFrame = captured
+        let blurKey = Float(config.blurRadius * pixelsPerPoint).bitPattern
+        let sharedBlur = groupCoordinator != nil && config.blurRadius > 0
+        let scattered: MTLTexture
+        var producedSharedBlur: ScatteredBackdropTexture?
+        if sharedBlur, let cached = captured.scatteredTextures[blurKey], cached.isUsable {
+            scattered = cached.texture
+        } else {
+            if sharedBlur { captured.scatteredTextures.removeValue(forKey: blurKey) }
+            // A group output belongs to this immutable captured frame, never to
+            // a reusable per-view scratch slot sampled by other in-flight views.
+            let pass = sharedBlur ? LiquidGlassBlurPass() : blurPass
+            guard let output = pass.encode(source: captured.texture, radius: config.blurRadius, pixelsPerPoint: pixelsPerPoint, commandBuffer: commandBuffer) else {
+                reportError("MPS blur output allocation failed")
+                return
+            }
+            scattered = output
+            if sharedBlur {
+                producedSharedBlur = ScatteredBackdropTexture(texture: output, producer: commandBuffer)
+            }
+        }
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return }
+        var uniforms = makeUniforms(mapping: mapping)
+        encoder.setRenderPipelineState(renderer.pipelineState)
+        // Metal copies these bytes into command storage; no shared uniform race.
+        encoder.setFragmentBytes(&uniforms, length: MemoryLayout<LiquidGlassUniforms>.stride, index: 0)
+        encoder.setFragmentTexture(captured.texture, index: 0)
+        encoder.setFragmentTexture(scattered, index: 1)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        encoder.endEncoding()
+        commandBuffer.present(drawable)
+        let semaphore = inFlight
+        commandBuffer.addCompletedHandler { [weak self, captured, producedSharedBlur] command in
+            withExtendedLifetime(captured) {}
+            if command.status == .error {
+                // Invalidate immediately on the completion thread, before a
+                // different view can reuse this output on the main thread.
+                producedSharedBlur?.markFailed()
+                let message = command.error?.localizedDescription ?? "unknown error"
+                DispatchQueue.main.async {
+                    // A consumer failure does not invalidate its producer, and
+                    // a delayed producer failure must not remove a replacement.
+                    if let producedSharedBlur,
+                       captured.scatteredTextures[blurKey] === producedSharedBlur {
+                        captured.scatteredTextures.removeValue(forKey: blurKey)
+                    }
+                    self?.groupCoordinator?.invalidate()
+                    self?.blurPass.invalidate()
+                    self?.reportError("GPU command failed: \(message)")
+                }
+            }
+            semaphore.signal()
+        }
+        submitted = true
+        commandBuffer.commit()
+        if let producedSharedBlur, producedSharedBlur.isUsable {
+            captured.scatteredTextures[blurKey] = producedSharedBlur
+        }
+    }
+
+    private func makeUniforms(mapping: (offset: SIMD2<Float>, scale: SIMD2<Float>)) -> LiquidGlassUniforms {
+        var u = config.uniforms
+        let scale = drawableSize.width / bounds.width
+        u.resolution = SIMD2(Float(drawableSize.width), Float(drawableSize.height))
+        u.contentsScale = Float(scale)
+        u.cornerRadius = Float(layer.cornerRadius)
+        u.uvOffset = mapping.offset
+        u.uvScale = mapping.scale
+        u.touchPoint = touchPoint.map { SIMD2(Float($0.x), Float($0.y)) } ?? SIMD2(repeating: -1)
+        let rectangles = frames.isEmpty ? [CGRect(origin: .zero, size: bounds.size)] : frames
+        u.rectangleCount = Int32(min(rectangles.count, LiquidGlassConfig.maxRectangles))
+        withUnsafeMutableBytes(of: &u.rectangles) { raw in
+            let values = raw.bindMemory(to: SIMD4<Float>.self)
+            for i in values.indices {
+                if i < rectangles.count {
+                    let r = rectangles[i]
+                    values[i] = SIMD4(Float(r.minX), Float(r.minY), Float(r.width), Float(r.height))
+                } else { values[i] = .zero }
+            }
+        }
+        return u
+    }
     public override func didMoveToWindow() {
         super.didMoveToWindow()
         if window == nil {
             isPaused = true
+            releaseCache()
+            groupCoordinator?.removeChild(id: captureID)
+            if isRegistered {
+                isRegistered = false
+                LiquidGlassEngine.shared.unregister(self)
+            }
         } else {
+            if !isRegistered {
+                isRegistered = true
+                LiquidGlassEngine.shared.register(self)
+            }
             isPaused = false
-            backdropCapture?.invalidate()
+            captureBackground()
         }
     }
-    
-    // MARK: - Hit Test
-    
     public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let view = super.hitTest(point, with: event)
-        return view == self ? nil : view
+        let target = super.hitTest(point, with: event)
+        return target == self ? nil : target
+    }
+    private func reportError(_ message: String) {
+        guard !didLogError else { return }
+        didLogError = true
+        NSLog("[LiquidGlassEffect] %@", message)
     }
 }

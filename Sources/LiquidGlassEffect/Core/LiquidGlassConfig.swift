@@ -53,6 +53,9 @@ public struct LiquidGlassConfig {
         blurRadius: Double = 0,
         shadowOverlay: Bool = true
     ) {
+        precondition(textureSizeCoefficient.isFinite && textureSizeCoefficient > 0, "textureSizeCoefficient must be positive and finite")
+        precondition(textureScaleCoefficient.isFinite && textureScaleCoefficient > 0, "textureScaleCoefficient must be positive and finite")
+        precondition(blurRadius.isFinite && blurRadius >= 0, "blurRadius must be nonnegative and finite")
         self.uniforms = uniforms
         self.textureSizeCoefficient = textureSizeCoefficient
         self.textureScaleCoefficient = textureScaleCoefficient
@@ -70,14 +73,14 @@ public extension LiquidGlassConfig {
     /// 适用于卡片、面板等中等尺寸组件。
     static let regular = Self(
         uniforms: .init(
-            glassThickness: 8,
-            refractiveIndex: 1.15,
-            dispersionStrength: 18,
-            glareIntensity: 0.15
+            glassThickness: 12,
+            refractiveIndex: 1.45,
+            dispersionStrength: 4,
+            glareIntensity: 0.28
         ),
         textureSizeCoefficient: 1.1,
         textureScaleCoefficient: 1.0,
-        blurRadius: 10,
+        blurRadius: 5,
         shadowOverlay: true
     )
     
@@ -87,13 +90,13 @@ public extension LiquidGlassConfig {
     static let telegram = Self(
         uniforms: .init(
             glassThickness: 10,
-            refractiveIndex: 1.2,
-            dispersionStrength: 25,
-            glareIntensity: 0.05
+            refractiveIndex: 1.4,
+            dispersionStrength: 3,
+            glareIntensity: 0.18
         ),
         textureSizeCoefficient: 1.1,
         textureScaleCoefficient: 1.0,
-        blurRadius: 35,
+        blurRadius: 18,
         shadowOverlay: false
     )
     
@@ -102,10 +105,10 @@ public extension LiquidGlassConfig {
     /// 适用于 TabBar 指示器、按钮高亮等需要聚焦效果的场景。
     static let lens = Self(
         uniforms: .init(
-            glassThickness: 6,
-            refractiveIndex: 1.1,
-            dispersionStrength: 15,
-            glareIntensity: 0.1
+            glassThickness: 10,
+            refractiveIndex: 1.5,
+            dispersionStrength: 5,
+            glareIntensity: 0.32
         ),
         shadowOverlay: true
     )
@@ -115,10 +118,10 @@ public extension LiquidGlassConfig {
     /// 最小折射，适用于不需要强烈视觉效果的场景。
     static let subtle = Self(
         uniforms: .init(
-            glassThickness: 6,
-            refractiveIndex: 1.1,
-            dispersionStrength: 10,
-            glareIntensity: 0.05
+            glassThickness: 7,
+            refractiveIndex: 1.3,
+            dispersionStrength: 2,
+            glareIntensity: 0.16
         ),
         shadowOverlay: true
     )
@@ -128,10 +131,11 @@ public extension LiquidGlassConfig {
     /// 适用于 TabBar 选中气泡、小按钮等小尺寸组件。
     /// - Parameter magnification: 放大倍数，默认 1
     static func thumb(magnification: Double = 1) -> Self {
-        Self(
+        precondition(magnification.isFinite && magnification > 0, "magnification must be positive and finite")
+        return Self(
             uniforms: .init(
                 glassThickness: 10,
-                refractiveIndex: 1.11,
+                refractiveIndex: 1.4,
                 dispersionStrength: 5,
                 fresnelDistanceRange: 70,
                 fresnelIntensity: 0,
@@ -139,7 +143,7 @@ public extension LiquidGlassConfig {
                 glareDistanceRange: 30,
                 glareAngleConvergence: 0,
                 glareOppositeSideBias: 0,
-                glareIntensity: 0.01,
+                glareIntensity: 0.22,
                 glareEdgeSharpness: -0.2,
                 glareDirectionOffset: .pi * 0.9
             ),

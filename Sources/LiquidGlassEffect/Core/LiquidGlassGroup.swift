@@ -2,157 +2,195 @@
 //  LiquidGlassGroup.swift
 //  LiquidGlassEffect
 //
-//  共享背景上下文 - 允许子组件共享同一个背景纹理，大幅降低 CPU 捕获开销
-//
 
 import SwiftUI
 import MetalKit
 
-/// 共享捕获协调器
-public class LiquidGlassGroupCoordinator: ObservableObject {
-    
-    @Published var sharedTexture: MTLTexture?
-    @Published var captureRect: CGRect = .zero
-    
-    // 注册的子视图 (用于计算总包围盒)
+/// One immutable background snapshot shared by the group's glass surfaces.
+public final class LiquidGlassGroupCoordinator: ObservableObject {
+    private(set) var currentFrame: CapturedBackdrop?
+    var sharedTexture: MTLTexture? { currentFrame?.texture }
+    var captureRect: CGRect { currentFrame?.captureRect ?? .zero }
     private var childFrames: [UUID: CGRect] = [:]
-    
-    // 捕获回调
     var onCaptureNeeded: (() -> Void)?
-    
+
     public init() {}
-    
+
     func updateChildFrame(id: UUID, frame: CGRect) {
+        guard !frame.isNull, frame.width > 0, frame.height > 0,
+              frame.origin.x.isFinite, frame.origin.y.isFinite,
+              frame.width.isFinite, frame.height.isFinite else { return }
+        guard childFrames[id] != frame else { return }
         childFrames[id] = frame
-        // 简单策略：每次子视图更新都重新计算总包围盒（实际应节流）
-        let unionRect = childFrames.values.reduce(CGRect.null) { $0.union($1) }
-        if !unionRect.isNull && unionRect != captureRect {
-            captureRect = unionRect
-            onCaptureNeeded?()
-        }
+        onCaptureNeeded?()
     }
-    
-    func updateTexture(_ texture: MTLTexture) {
-        self.sharedTexture = texture
+
+    func removeChild(id: UUID) {
+        guard childFrames.removeValue(forKey: id) != nil else { return }
+        onCaptureNeeded?()
     }
+
+    var childBounds: CGRect {
+        childFrames.values.reduce(CGRect.null) { $0.union($1) }
+    }
+
+    func updateFrame(_ frame: CapturedBackdrop) {
+        // No @Published texture: a capture does not rebuild the SwiftUI tree.
+        currentFrame = frame
+    }
+
+    func invalidate() { onCaptureNeeded?() }
+    func releaseFrame() { currentFrame = nil }
 }
 
-/// 液态玻璃分组容器
 public struct LiquidGlassGroup<Content: View>: View {
-    
     let content: Content
     @StateObject private var coordinator = LiquidGlassGroupCoordinator()
-    
+
     public init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
-    
+
     public var body: some View {
         content
             .environment(\.liquidGlassGroupCoordinator, coordinator)
-            .background(
-                LiquidGlassGroupBackdrop(coordinator: coordinator)
-            )
+            .background(LiquidGlassGroupBackdrop(coordinator: coordinator))
     }
 }
 
-/// 负责捕获大背景的视图
 private struct LiquidGlassGroupBackdrop: UIViewRepresentable {
-    
-    @ObservedObject var coordinator: LiquidGlassGroupCoordinator
-    
+    let coordinator: LiquidGlassGroupCoordinator
+
     func makeUIView(context: Context) -> LiquidGlassGroupBackdropView {
         let view = LiquidGlassGroupBackdropView()
         view.coordinator = coordinator
         return view
     }
-    
+
     func updateUIView(_ uiView: LiquidGlassGroupBackdropView, context: Context) {
-        // 更新逻辑
+        uiView.coordinator = coordinator
+    }
+
+    static func dismantleUIView(_ uiView: LiquidGlassGroupBackdropView, coordinator: ()) {
+        uiView.stopCaptureLoop()
     }
 }
 
-class LiquidGlassGroupBackdropView: UIView {
-    
-    weak var coordinator: LiquidGlassGroupCoordinator?
-    private var backdropView = BackdropView()
+final class LiquidGlassGroupBackdropView: UIView {
+    weak var coordinator: LiquidGlassGroupCoordinator? {
+        didSet {
+            guard coordinator !== oldValue else { return }
+            oldValue?.onCaptureNeeded = nil
+            coordinator?.onCaptureNeeded = { [weak self] in self?.setNeedsLayout() }
+        }
+    }
+    private let backdropView = BackdropView()
     private var zeroCopyBridge: ZeroCopyBridge?
-    
+    private var displayLink: CADisplayLink?
+    private var didReportCaptureFailure = false
+
     override init(frame: CGRect) {
         super.init(frame: frame)
-        self.isUserInteractionEnabled = false
-        self.isHidden = true // 不直接显示，仅用于捕获
-        
+        isUserInteractionEnabled = false
+        isOpaque = false
+        backgroundColor = .clear
+        clipsToBounds = false
+        // As a SwiftUI background, this sample layer is below the entire group,
+        // so neither the group's glass nor its labels feed back into the image.
+        addSubview(backdropView)
         if let device = LiquidGlassRenderer.shared?.device {
             zeroCopyBridge = ZeroCopyBridge(device: device)
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(applicationDidEnterBackground),
+                                               name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(applicationDidBecomeActive),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
     }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) not implemented")
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
+
+    deinit {
+        displayLink?.invalidate()
+        NotificationCenter.default.removeObserver(self)
     }
-    
-    func capture() {
-        guard let superview = superview, let bridge = zeroCopyBridge, let coordinator = coordinator else { return }
-        
-        // 确保有合法的 captureRect
-        // 这里我们直接使用 superview 的 bounds 作为简单的实现，
-        // 实际上应该使用 coordinator.captureRect (子视图的联合包围盒)
-        // 为了简化 Phase 2 的实现，我们先捕获整个 Group 的区域
-        let captureFrame = self.frame
-        
-        // 准备 backdropView
-        if backdropView.superview !== superview {
-            superview.insertSubview(backdropView, at: 0) // 放在最底层
-        }
-        backdropView.frame = captureFrame
-        backdropView.isHidden = true // 它是隐藏的，只用于 drawHierarchy
-        
-        // 使用 ZeroCopyBridge 捕获
-        // let scale = UIScreen.main.scale // Removed unused variable
-        let newTexture = bridge.render { context in
-            // 需要反转 Y 轴吗？通常 UIKit 到 Metal 不需要，除非坐标系不同
-            // 这里保持标准绘制
-            UIGraphicsPushContext(context)
-            // drawHierarchy 在屏幕外绘制可能需要特殊处理
-            // 这里我们尝试绘制 superview 的层级，排除 self
-            superview.drawHierarchy(in: superview.bounds, afterScreenUpdates: false)
-            UIGraphicsPopContext()
-        }
-        
-        if let texture = newTexture {
-            // 更新 Coordinator
-            DispatchQueue.main.async {
-                coordinator.updateTexture(texture)
-            }
-        }
-    }
-    
-    // 定时器触发捕获
-    private var displayLink: CADisplayLink?
-    
+
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if window != nil {
-            startCaptureLoop()
-        } else {
+        if window != nil { startCaptureLoop() }
+        else {
             stopCaptureLoop()
+            coordinator?.releaseFrame()
+            zeroCopyBridge?.releaseBuffers()
         }
     }
-    
+
+    func capture() {
+        guard let window, let bridge = zeroCopyBridge, let coordinator,
+              bounds.width > 0, bounds.height > 0 else { return }
+        let sourceLayer = layer.presentation() ?? layer
+        let windowLayer = window.layer.presentation() ?? window.layer
+        let hostRect = sourceLayer.convert(bounds, to: windowLayer)
+        let children = coordinator.childBounds
+        let contentRect = children.isNull ? hostRect : hostRect.union(children)
+        // Optical overscan is an actual spatial margin, not a texture zoom.
+        let margin = max(16, min(contentRect.width, contentRect.height) * 0.1)
+        let captureRect = contentRect.insetBy(dx: -margin, dy: -margin)
+        guard captureRect.width.isFinite, captureRect.height.isFinite,
+              captureRect.width > 0, captureRect.height > 0 else { return }
+        let localRect = windowLayer.convert(captureRect, to: sourceLayer)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        backdropView.frame = localRect
+        CATransaction.commit()
+        let scale = window.screen.scale
+        let width = max(1, Int(ceil(localRect.width * scale)))
+        let height = max(1, Int(ceil(localRect.height * scale)))
+        bridge.setupBuffer(width: width, height: height)
+        var didDraw = false
+        let frame = bridge.renderFrame(captureRect: captureRect) { context in
+            context.scaleBy(x: CGFloat(width) / localRect.width,
+                            y: CGFloat(height) / localRect.height)
+            UIGraphicsPushContext(context)
+            didDraw = self.backdropView.drawHierarchy(in: self.backdropView.bounds, afterScreenUpdates: false)
+            UIGraphicsPopContext()
+        }
+        guard didDraw, let frame else {
+            if !didReportCaptureFailure {
+                print("[LiquidGlassEffect] Group backdrop capture failed (drawHierarchy=\(didDraw), size=\(localRect.size)). No new frame was published.")
+                didReportCaptureFailure = true
+            }
+            return
+        }
+        coordinator.updateFrame(frame)
+    }
+
     private func startCaptureLoop() {
         stopCaptureLoop()
-        displayLink = CADisplayLink(target: self, selector: #selector(handleDisplayLink))
-        displayLink?.preferredFramesPerSecond = 30 // 默认 30fps
-        displayLink?.add(to: .main, forMode: .common)
+        let target = GroupDisplayLinkTarget(view: self)
+        let link = CADisplayLink(target: target, selector: #selector(GroupDisplayLinkTarget.tick))
+        link.preferredFramesPerSecond = 30
+        link.add(to: .main, forMode: .common)
+        displayLink = link
     }
-    
-    private func stopCaptureLoop() {
+
+    func stopCaptureLoop() {
         displayLink?.invalidate()
         displayLink = nil
     }
-    
-    @objc private func handleDisplayLink() {
+
+    @objc private func applicationDidEnterBackground() { stopCaptureLoop() }
+    @objc private func applicationDidBecomeActive() {
+        if window != nil { startCaptureLoop() }
+    }
+
+    fileprivate func displayLinkTick() {
+        // Recapture even when geometry is static: the background can animate.
         capture()
     }
+}
+
+private final class GroupDisplayLinkTarget: NSObject {
+    weak var view: LiquidGlassGroupBackdropView?
+    init(view: LiquidGlassGroupBackdropView) { self.view = view }
+    @objc func tick() { view?.displayLinkTick() }
 }

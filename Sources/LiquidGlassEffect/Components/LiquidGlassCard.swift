@@ -90,9 +90,10 @@ public struct LiquidGlassContainer<Content: View>: View {
     
     public var body: some View {
         content
+            // Clip only content; preserve the glass AA rim and external shadow.
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .circular))
             .background {
                 LiquidGlassMetalView(config: config, cornerRadius: cornerRadius)
             }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }

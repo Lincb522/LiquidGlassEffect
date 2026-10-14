@@ -41,7 +41,8 @@ public struct LiquidGlassMetalView: UIViewRepresentable {
     }
     
     public func updateUIView(_ uiView: LiquidGlassView, context: Context) {
-        uiView.layer.cornerRadius = cornerRadius
+        uiView.updateConfiguration(config)
+        uiView.updateCornerRadius(cornerRadius)
         uiView.backgroundCaptureFrameRate = backgroundCaptureFrameRate
         
         if uiView.groupCoordinator !== groupCoordinator {
@@ -56,9 +57,10 @@ public struct LiquidGlassMetalView: UIViewRepresentable {
     // MARK: - Private
     
     private func configureView(_ view: LiquidGlassView) {
-        view.layer.cornerRadius = cornerRadius
-        view.layer.cornerCurve = .continuous
-        view.clipsToBounds = true
+        view.updateCornerRadius(cornerRadius)
+        view.layer.cornerCurve = .circular
+        // The Metal SDF is the single shape mask; a second CA mask clips its AA rim.
+        view.clipsToBounds = false
         view.backgroundCaptureFrameRate = backgroundCaptureFrameRate
         view.isUserInteractionEnabled = true
         view.groupCoordinator = groupCoordinator

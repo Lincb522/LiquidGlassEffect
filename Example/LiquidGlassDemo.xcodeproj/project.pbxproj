@@ -7,21 +7,57 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		17A30C3672B1A4F78E7898D5 /* OpticsValidationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6402E27523FF51C89499EBBF /* OpticsValidationView.swift */; };
 		21453A385649E062F046DA71 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5F4A78B9780929A301890A /* ContentView.swift */; };
 		27EE1685BC2F16746AA959B5 /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = 032EF9F49888CDAD998E8971 /* LiquidGlassEffect */; };
 		31C1C3C64AEB2FC326B69DFD /* LiquidGlassDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 472BFE74DCDCBF26C655AD75 /* LiquidGlassDemoApp.swift */; };
+		47F8C852C6104BE8DED76040 /* LiquidGlassEffect in Frameworks */ = {isa = PBXBuildFile; productRef = 22F241F340F99F51C0F2D91C /* LiquidGlassEffect */; };
+		4DDEB0949A7B80362ABBB357 /* LiquidGlassDemoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CDDAEB24863B39A1A0EE2F /* LiquidGlassDemoUITests.swift */; };
+		52C3A94181096A9AF460EF09 /* LiquidGlassOpticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB1EBF496CCDC5881858D581 /* LiquidGlassOpticsTests.swift */; };
+		6107FF90642ADFA1324CE82E /* BackdropCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120FA04C21382A17CA4A6371 /* BackdropCaptureTests.swift */; };
 		E591F0EBC4A2EBC6425A4964 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BD3EC5723C5570832C85D64 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		8A9434E53F5A9721CF63D1FB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 13D883407EA80B13C76AD185 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A38925257B9270A399BFE0E3;
+			remoteInfo = LiquidGlassDemo;
+		};
+		966ED503A7A7C1A7186A6018 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 13D883407EA80B13C76AD185 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A38925257B9270A399BFE0E3;
+			remoteInfo = LiquidGlassDemo;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		120FA04C21382A17CA4A6371 /* BackdropCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackdropCaptureTests.swift; sourceTree = "<group>"; };
 		2EF4D064318DF14C18C8AC14 /* LiquidGlassDemo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LiquidGlassDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		472BFE74DCDCBF26C655AD75 /* LiquidGlassDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassDemoApp.swift; sourceTree = "<group>"; };
+		5CFF8235DF7343EBB8E2CD74 /* LiquidGlassDemoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LiquidGlassDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6402E27523FF51C89499EBBF /* OpticsValidationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpticsValidationView.swift; sourceTree = "<group>"; };
+		66CDDAEB24863B39A1A0EE2F /* LiquidGlassDemoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassDemoUITests.swift; sourceTree = "<group>"; };
 		8F5F4A78B9780929A301890A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9BD3EC5723C5570832C85D64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C2E1C5568F4FAED9E6EEA252 /* LiquidGlassEffectTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LiquidGlassEffectTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB1EBF496CCDC5881858D581 /* LiquidGlassOpticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassOpticsTests.swift; sourceTree = "<group>"; };
 		F2FFAC1B662F7230CE92F631 /* LiquidGlassEffect */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LiquidGlassEffect; path = ..; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		6ECE7682FD0443620A010A59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				47F8C852C6104BE8DED76040 /* LiquidGlassEffect in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BE005B24EF4452C763977975 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -37,6 +73,8 @@
 			isa = PBXGroup;
 			children = (
 				51C5E486EA0546A1ACB1D372 /* LiquidGlassDemo */,
+				740A3FEE736A72FB539CE069 /* LiquidGlassDemoUITests */,
+				8E7E8B4769DE83F6DA64CE15 /* LiquidGlassEffectTests */,
 				6616C3103AACF79DB94267CA /* Packages */,
 				9CD65CA7D4FC892443B50FDE /* Products */,
 			);
@@ -48,6 +86,7 @@
 				9BD3EC5723C5570832C85D64 /* Assets.xcassets */,
 				8F5F4A78B9780929A301890A /* ContentView.swift */,
 				472BFE74DCDCBF26C655AD75 /* LiquidGlassDemoApp.swift */,
+				6402E27523FF51C89499EBBF /* OpticsValidationView.swift */,
 			);
 			path = LiquidGlassDemo;
 			sourceTree = "<group>";
@@ -60,10 +99,30 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
+		740A3FEE736A72FB539CE069 /* LiquidGlassDemoUITests */ = {
+			isa = PBXGroup;
+			children = (
+				66CDDAEB24863B39A1A0EE2F /* LiquidGlassDemoUITests.swift */,
+			);
+			path = LiquidGlassDemoUITests;
+			sourceTree = "<group>";
+		};
+		8E7E8B4769DE83F6DA64CE15 /* LiquidGlassEffectTests */ = {
+			isa = PBXGroup;
+			children = (
+				120FA04C21382A17CA4A6371 /* BackdropCaptureTests.swift */,
+				EB1EBF496CCDC5881858D581 /* LiquidGlassOpticsTests.swift */,
+			);
+			name = LiquidGlassEffectTests;
+			path = ../Tests/LiquidGlassEffectTests;
+			sourceTree = "<group>";
+		};
 		9CD65CA7D4FC892443B50FDE /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				2EF4D064318DF14C18C8AC14 /* LiquidGlassDemo.app */,
+				5CFF8235DF7343EBB8E2CD74 /* LiquidGlassDemoUITests.xctest */,
+				C2E1C5568F4FAED9E6EEA252 /* LiquidGlassEffectTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -71,6 +130,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		7D1417C798A20D554A66DC87 /* LiquidGlassEffectTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 708D3B611598655E89005636 /* Build configuration list for PBXNativeTarget "LiquidGlassEffectTests" */;
+			buildPhases = (
+				2160401229753E9E48D0C4A1 /* Sources */,
+				6ECE7682FD0443620A010A59 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D3BE62E41477D880EF4E8103 /* PBXTargetDependency */,
+			);
+			name = LiquidGlassEffectTests;
+			packageProductDependencies = (
+				22F241F340F99F51C0F2D91C /* LiquidGlassEffect */,
+			);
+			productName = LiquidGlassEffectTests;
+			productReference = C2E1C5568F4FAED9E6EEA252 /* LiquidGlassEffectTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		A38925257B9270A399BFE0E3 /* LiquidGlassDemo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2237AE8A99B0985B59237780 /* Build configuration list for PBXNativeTarget "LiquidGlassDemo" */;
@@ -91,6 +170,24 @@
 			productReference = 2EF4D064318DF14C18C8AC14 /* LiquidGlassDemo.app */;
 			productType = "com.apple.product-type.application";
 		};
+		DD354F440CB64C451D6B115F /* LiquidGlassDemoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 760939443BE3CA7ABE21AE45 /* Build configuration list for PBXNativeTarget "LiquidGlassDemoUITests" */;
+			buildPhases = (
+				6C0F7152AFA3DE8CF1F96827 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7876689F417A7144FF7C37CD /* PBXTargetDependency */,
+			);
+			name = LiquidGlassDemoUITests;
+			packageProductDependencies = (
+			);
+			productName = LiquidGlassDemoUITests;
+			productReference = 5CFF8235DF7343EBB8E2CD74 /* LiquidGlassDemoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -100,13 +197,19 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					7D1417C798A20D554A66DC87 = {
+						DevelopmentTeam = "";
+					};
 					A38925257B9270A399BFE0E3 = {
 						DevelopmentTeam = "";
+					};
+					DD354F440CB64C451D6B115F = {
+						DevelopmentTeam = "";
+						TestTargetID = A38925257B9270A399BFE0E3;
 					};
 				};
 			};
 			buildConfigurationList = 52E7475ADCFA4F69558B3F48 /* Build configuration list for PBXProject "LiquidGlassDemo" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -119,10 +222,13 @@
 				DE73F42E0F6B21D87EAD8802 /* XCLocalSwiftPackageReference ".." */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 9CD65CA7D4FC892443B50FDE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				A38925257B9270A399BFE0E3 /* LiquidGlassDemo */,
+				7D1417C798A20D554A66DC87 /* LiquidGlassEffectTests */,
+				DD354F440CB64C451D6B115F /* LiquidGlassDemoUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -139,16 +245,47 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2160401229753E9E48D0C4A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6107FF90642ADFA1324CE82E /* BackdropCaptureTests.swift in Sources */,
+				52C3A94181096A9AF460EF09 /* LiquidGlassOpticsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6C0F7152AFA3DE8CF1F96827 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4DDEB0949A7B80362ABBB357 /* LiquidGlassDemoUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D5E4FE53D50382A557D2029A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				21453A385649E062F046DA71 /* ContentView.swift in Sources */,
 				31C1C3C64AEB2FC326B69DFD /* LiquidGlassDemoApp.swift in Sources */,
+				17A30C3672B1A4F78E7898D5 /* OpticsValidationView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7876689F417A7144FF7C37CD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A38925257B9270A399BFE0E3 /* LiquidGlassDemo */;
+			targetProxy = 966ED503A7A7C1A7186A6018 /* PBXContainerItemProxy */;
+		};
+		D3BE62E41477D880EF4E8103 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A38925257B9270A399BFE0E3 /* LiquidGlassDemo */;
+			targetProxy = 8A9434E53F5A9721CF63D1FB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1D9DDB412464AC91C621DC3B /* Release */ = {
@@ -246,6 +383,40 @@
 			};
 			name = Debug;
 		};
+		4FF6B408E1BA4C0BC8C5F8C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.LiquidGlassDemoUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LiquidGlassDemo;
+			};
+			name = Debug;
+		};
+		5048B77194B2A6D3878FB8F7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.LiquidGlassDemoUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = LiquidGlassDemo;
+			};
+			name = Release;
+		};
 		551753269189AC9103F03889 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -309,6 +480,23 @@
 			};
 			name = Release;
 		};
+		696108B175C76C149BA4C147 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.LiquidGlassEffectTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LiquidGlassDemo.app/LiquidGlassDemo";
+			};
+			name = Debug;
+		};
 		A7F14861F61204DF90A239E2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -334,6 +522,23 @@
 			};
 			name = Debug;
 		};
+		FF270FF8805E311272CF69C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.LiquidGlassEffectTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LiquidGlassDemo.app/LiquidGlassDemo";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -355,6 +560,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		708D3B611598655E89005636 /* Build configuration list for PBXNativeTarget "LiquidGlassEffectTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				696108B175C76C149BA4C147 /* Debug */,
+				FF270FF8805E311272CF69C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		760939443BE3CA7ABE21AE45 /* Build configuration list for PBXNativeTarget "LiquidGlassDemoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4FF6B408E1BA4C0BC8C5F8C0 /* Debug */,
+				5048B77194B2A6D3878FB8F7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -366,6 +589,10 @@
 
 /* Begin XCSwiftPackageProductDependency section */
 		032EF9F49888CDAD998E8971 /* LiquidGlassEffect */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LiquidGlassEffect;
+		};
+		22F241F340F99F51C0F2D91C /* LiquidGlassEffect */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LiquidGlassEffect;
 		};

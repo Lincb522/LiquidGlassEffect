@@ -59,7 +59,7 @@ public final class ShadowView: UIView {
     }
     
     private func updateShadowPath() {
-        let cornerRadius = bounds.height / 2
+        let cornerRadius = min(layer.cornerRadius, min(bounds.width, bounds.height) / 2)
         
         // 外部路径
         let outerPath = UIBezierPath(

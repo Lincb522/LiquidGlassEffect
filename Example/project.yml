@@ -48,3 +48,45 @@ targets:
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
         AD_HOC_CODE_SIGNING_ALLOWED: "YES"
+
+  LiquidGlassEffectTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../Tests/LiquidGlassEffectTests
+    dependencies:
+      - target: LiquidGlassDemo
+      - package: LiquidGlassEffect
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.LiquidGlassEffectTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/LiquidGlassDemo.app/LiquidGlassDemo"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+  LiquidGlassDemoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: LiquidGlassDemoUITests
+    dependencies:
+      - target: LiquidGlassDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.LiquidGlassDemoUITests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: LiquidGlassDemo
+
+schemes:
+  LiquidGlassDemo:
+    build:
+      targets:
+        LiquidGlassDemo: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - name: LiquidGlassEffectTests
+        - name: LiquidGlassDemoUITests

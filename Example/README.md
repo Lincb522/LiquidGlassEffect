@@ -70,10 +70,56 @@ CODE_SIGNING_ALLOWED: NO
 
 | Tab | Content | 内容 |
 |-----|---------|------|
-| Basic | Regular, Lens, Subtle presets | 三种预设效果对比 |
-| Cards | Card layout examples | 卡片式布局示例 |
-| Interactive | Buttons, tabs, sliders | 按钮、Tab、滑块等交互组件 |
-| Config | Real-time parameter adjustment | 实时调整参数 |
+| Buttons | Buttons, icons and press interactions | 按钮与按压交互 |
+| Cards | Cards, notifications, tags and badges | 卡片、通知、标签和角标 |
+| Forms | Text fields, sliders and toggles | 输入框、滑块和开关 |
+| Progress | Linear, circular and indeterminate progress | 进度组件 |
+| Navigation | Tab bars and floating containers | 导航栏和浮动容器 |
+
+### Optical comparison | 光学对照
+
+Tap **Optics** in the gallery, or launch with `--optics`. This page uses the
+library's actual Metal glass over a deterministic grid, letterforms and solid
+blue/orange shapes. Regular and Lens are shown side by side, followed by round,
+capsule and wide surfaces. The exposed background is the visual reference.
+
+点击画廊右上角 **Optics**，或使用 `--optics` 启动。对照页使用本库真实的 Metal
+渲染，在网格、文字和蓝橙色块上展示 Regular、Lens、圆形、胶囊及宽面板。
+观察玻璃内外网格的连续性、边缘折射及 Regular / Lens 的细节差异。
+
+| Launch argument | Initial state |
+|---|---|
+| `--optics` | Open the optical comparison |
+| `--optics-dark` | Dark appearance |
+| `--optics-tint` | Blue material tint passed into the shader |
+| `--optics-angular` | Smaller corner radii |
+| `--optics-grouped` | Shared background capture via `LiquidGlassGroup` |
+| `--optics-motion` | Moving text, grid and blue stripe |
+| `--optics-no-glass` | Uncovered background reference |
+
+Combine these arguments with `--optics`. All six controls also work while the
+page is running; no view identity reset is used to update tint or corners.
+
+### Simulator tests | 模拟器测试
+
+Generate the project, then run the shared `LiquidGlassDemo` scheme with an
+installed iOS 18 simulator (replace `SIMULATOR_UDID` with its identifier):
+
+```bash
+xcodegen generate
+xcodebuild test \
+  -project LiquidGlassDemo.xcodeproj \
+  -scheme LiquidGlassDemo \
+  -destination 'platform=iOS Simulator,id=SIMULATOR_UDID' \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+The scheme includes `LiquidGlassEffectTests` and `LiquidGlassDemoUITests`.
+UI tests exercise live tint, corner, appearance, grouping and motion controls,
+plus the original gallery's Like and Bookmark buttons. They retain screenshot
+attachments for light/dark and standalone/grouped comparison. Passing UI actions
+and assertions is not by itself proof of optical fidelity: review the attached
+images and moving-background behavior on the target runtime.
 
 ---
 
@@ -84,10 +130,13 @@ Example/
 ├── project.yml          # XcodeGen config | XcodeGen 配置
 ├── generate.sh          # Generate script | 生成脚本
 ├── build_ipa.sh         # Build IPA script | 构建 IPA 脚本
-└── LiquidGlassDemo/
-    ├── LiquidGlassDemoApp.swift
-    ├── ContentView.swift
-    └── Assets.xcassets/
+├── LiquidGlassDemo/
+│   ├── LiquidGlassDemoApp.swift
+│   ├── ContentView.swift
+│   ├── OpticsValidationView.swift
+│   └── Assets.xcassets/
+└── LiquidGlassDemoUITests/
+    └── LiquidGlassDemoUITests.swift
 ```
 
 ---
@@ -97,6 +146,5 @@ Example/
 Run the app to see the effects.  
 运行应用查看效果。
 
-| Basic | Cards | Interactive | Config |
-|-------|-------|-------------|--------|
-| 基础 | 卡片 | 交互 | 配置 |
+The optical UI tests keep their screenshots in the Xcode test result bundle.
+光学对照 UI 测试将截图保存在 Xcode 测试结果包中。

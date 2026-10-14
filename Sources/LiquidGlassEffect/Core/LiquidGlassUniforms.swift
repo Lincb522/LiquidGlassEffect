@@ -25,7 +25,7 @@ public struct LiquidGlassUniforms {
     public var contentsScale: Float = .zero
     
     /// 触摸点位置（用于交互效果）
-    public var touchPoint: SIMD2<Float> = .zero
+    public var touchPoint: SIMD2<Float> = SIMD2<Float>(repeating: -1)
     
     /// 形状合并平滑度
     public var shapeMergeSmoothness: Float = .zero
@@ -108,16 +108,16 @@ public struct LiquidGlassUniforms {
     // MARK: - Init
     
     public init(
-        glassThickness: Float = 6,
-        refractiveIndex: Float = 1.1,
-        dispersionStrength: Float = 15,
+        glassThickness: Float = 10,
+        refractiveIndex: Float = 1.45,
+        dispersionStrength: Float = 4,
         fresnelDistanceRange: Float = 70,
-        fresnelIntensity: Float = 0,
+        fresnelIntensity: Float = 0.4,
         fresnelEdgeSharpness: Float = 0,
         glareDistanceRange: Float = 30,
         glareAngleConvergence: Float = 0.1,
         glareOppositeSideBias: Float = 1,
-        glareIntensity: Float = 0.1,
+        glareIntensity: Float = 0.28,
         glareEdgeSharpness: Float = -0.1,
         glareDirectionOffset: Float = -.pi / 4
     ) {

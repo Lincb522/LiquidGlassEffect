@@ -28,8 +28,6 @@ public struct LiquidGlassButton<Label: View>: View {
     private let config: LiquidGlassConfig
     private let pressStyle: LiquidGlassPressableStyle
     
-    @State private var isPressed = false
-    
     // MARK: - Init
     
     public init(
@@ -49,22 +47,14 @@ public struct LiquidGlassButton<Label: View>: View {
     // MARK: - Body
     
     public var body: some View {
-        label
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .liquidGlass(config: config, cornerRadius: cornerRadius)
-            .scaleEffect(isPressed ? pressStyle.pressedScale : 1.0)
-            .animation(
-                .spring(response: pressStyle.responseTime, dampingFraction: pressStyle.dampingFraction),
-                value: isPressed
-            )
-            .onTapGesture {
-                isPressed = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + pressStyle.pressDuration) {
-                    isPressed = false
-                    action()
-                }
-            }
+        Button(action: action) {
+            label
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .liquidGlass(config: config, cornerRadius: cornerRadius)
+                .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+        }
+        .buttonStyle(LiquidGlassNativeButtonStyle(pressStyle: pressStyle))
     }
 }
 
@@ -80,8 +70,6 @@ public struct LiquidGlassTextButton: View {
     private let cornerRadius: CGFloat
     private let config: LiquidGlassConfig
     
-    @State private var isPressed = false
-    
     public init(
         _ title: String,
         cornerRadius: CGFloat = 16,
@@ -95,21 +83,16 @@ public struct LiquidGlassTextButton: View {
     }
     
     public var body: some View {
-        Text(title)
-            .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .liquidGlass(config: config, cornerRadius: cornerRadius)
-            .scaleEffect(isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-            .onTapGesture {
-                isPressed = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isPressed = false
-                    action()
-                }
-            }
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .liquidGlass(config: config, cornerRadius: cornerRadius)
+                .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+        }
+        .buttonStyle(LiquidGlassNativeButtonStyle(pressStyle: .default))
     }
 }
 
@@ -135,8 +118,6 @@ public struct LiquidGlassIconButton: View {
     private let isActive: Bool
     private let pressStyle: LiquidGlassPressableStyle
     
-    @State private var isPressed = false
-    
     // MARK: - Init
     
     public init(
@@ -158,28 +139,36 @@ public struct LiquidGlassIconButton: View {
     // MARK: - Body
     
     public var body: some View {
-        ZStack {
-            if isActive {
-                Circle().fill(.white)
+        Button(action: action) {
+            ZStack {
+                if isActive {
+                    Circle().fill(.white)
+                }
+
+                Image(systemName: icon)
+                    .font(.system(size: size * 0.4, weight: .medium))
+                    .foregroundStyle(isActive ? .black : iconColor)
             }
-            
-            Image(systemName: icon)
-                .font(.system(size: size * 0.4, weight: .medium))
-                .foregroundStyle(isActive ? .black : iconColor)
+            .frame(width: size, height: size)
+            .liquidGlass(cornerRadius: size / 2)
+            .contentShape(Circle())
         }
-        .frame(width: size, height: size)
-        .liquidGlass(cornerRadius: size / 2)
-        .scaleEffect(isPressed ? pressStyle.pressedScale : 1.0)
-        .animation(
-            .spring(response: pressStyle.responseTime, dampingFraction: pressStyle.dampingFraction),
-            value: isPressed
-        )
-        .onTapGesture {
-            isPressed = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + pressStyle.pressDuration) {
-                isPressed = false
-                action()
-            }
-        }
+        .buttonStyle(LiquidGlassNativeButtonStyle(pressStyle: pressStyle))
+    }
+}
+
+/// Preserve the existing scale/spring treatment while using native Button
+/// activation, accessibility and disabled semantics. The finger-down state
+/// drives the animation; pressDuration does not delay a native button action.
+private struct LiquidGlassNativeButtonStyle: ButtonStyle {
+    let pressStyle: LiquidGlassPressableStyle
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? pressStyle.pressedScale : 1.0)
+            .animation(
+                .spring(response: pressStyle.responseTime, dampingFraction: pressStyle.dampingFraction),
+                value: configuration.isPressed
+            )
     }
 }
